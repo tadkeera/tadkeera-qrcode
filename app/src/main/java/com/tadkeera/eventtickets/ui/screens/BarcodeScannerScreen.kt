@@ -331,7 +331,7 @@ fun BarcodeScannerScreen(
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("إحصائيات تذاكر المناسبة:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                HorizontalDivider()
+                                Divider()
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text("إجمالي التذاكر:")
                                     Text("$totalTickets", fontWeight = FontWeight.Bold)

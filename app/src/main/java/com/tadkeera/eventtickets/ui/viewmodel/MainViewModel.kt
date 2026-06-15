@@ -197,8 +197,11 @@ class MainViewModel @Inject constructor(
                 // We will get them in the Repository update.
                 
                 val tickets = mutableListOf<Ticket>()
+                val charPool : List<Char> = ('A'..'Z') + ('0'..'9')
                 for (i in 1..count) {
-                    val qrCode = QRCodeGenerator.generateRandomCode() // Using direct helper
+                    val qrCode = (1..24)
+                        .map { kotlin.random.Random.nextInt(0, charPool.size).let { charPool[it] } }
+                        .joinToString("")
                     val guestName = if (i <= guestNames.size) guestNames[i - 1] else ""
                     tickets.add(
                         Ticket(
@@ -283,7 +286,7 @@ class MainViewModel @Inject constructor(
                 val qW = design.qrCodeWidth * pdfWidth
                 val qH = design.qrCodeHeight * pdfHeight
                 
-                qrImage.absolutePosition = com.itextpdf.text.Rectangle(qX, qY, qX + qW, qY + qH)
+                qrImage.setAbsolutePosition(qX, qY)
                 qrImage.scaleAbsolute(qW, qH)
                 overContent.addImage(qrImage)
                 
