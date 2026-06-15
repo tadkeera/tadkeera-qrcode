@@ -96,12 +96,13 @@ fun TicketDesignScreen(
                     outputStream.close()
                     selectedPdfFile = tempFile
 
-                    // Render first page as bitmap
+                    // Render first page as bitmap at high quality (3x scale)
                     val fileDescriptor = ParcelFileDescriptor.open(tempFile, ParcelFileDescriptor.MODE_READ_ONLY)
                     val pdfRenderer = PdfRenderer(fileDescriptor)
                     if (pdfRenderer.pageCount > 0) {
                         val page = pdfRenderer.openPage(0)
-                        val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+                        val scale = 3
+                        val bitmap = Bitmap.createBitmap(page.width * scale, page.height * scale, Bitmap.Config.ARGB_8888)
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                         pdfBitmap = bitmap
                         page.close()

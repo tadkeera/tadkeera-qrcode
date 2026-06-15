@@ -95,5 +95,16 @@ fun TadkeeraApp() {
                 viewModel = viewModel
             )
         }
+        composable(
+            route = "orders_list/{eventId}",
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
+            OrdersListScreen(
+                eventId = eventId,
+                navController = navController,
+                viewModel = viewModel
+            )
+        }
     }
 }

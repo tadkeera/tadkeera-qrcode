@@ -1,6 +1,8 @@
 package com.tadkeera.eventtickets.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -20,6 +22,7 @@ fun EventDetailScreen(
 ) {
     val eventState = viewModel.getEventFlow(eventId).collectAsState(initial = null)
     val event = eventState.value
+    val scrollState = rememberScrollState()
 
     Scaffold(
         topBar = {
@@ -37,7 +40,8 @@ fun EventDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -47,7 +51,7 @@ fun EventDetailScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Button 1: Ticket Design
             Card(
@@ -85,6 +89,19 @@ fun EventDetailScreen(
                     Text("3. قارئ الباركود والتحقق", style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("افتح الكاميرا لمسح تذاكر الضيوف عند البوابة والتحقق من صحتها بدون إنترنت.", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            // Button 4: Orders & Requests
+            Card(
+                onClick = { navController.navigate("orders_list/$eventId") },
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("4. الطلبات والأوردرات", style = MaterialTheme.typography.titleLarge)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("عرض تقارير التذاكر المصدرة، ومجموعات التذاكر، وتقارير الزوار ومحاولات التكرار والتزوير.", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

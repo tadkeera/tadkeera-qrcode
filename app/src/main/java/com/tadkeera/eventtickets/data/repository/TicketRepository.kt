@@ -23,6 +23,7 @@ class TicketRepository @Inject constructor(
     suspend fun getTicketByQR(qr: String) = ticketDao.getTicketByQR(qr)
     suspend fun updateTicket(ticket: Ticket) = ticketDao.updateTicket(ticket)
     suspend fun addTickets(tickets: List<Ticket>) = ticketDao.insertTickets(tickets)
+    suspend fun deleteOrder(eventCode: String) = ticketDao.deleteTicketsByCode(eventCode)
 
     fun getDesigns(eventId: String) = designDao.getDesignsForEvent(eventId)
     suspend fun addDesign(design: TicketDesign) = designDao.insertDesign(design)

@@ -41,6 +41,9 @@ interface TicketDao {
     
     @Query("SELECT COUNT(*) FROM tickets WHERE eventId = :eventId AND isScanned = 1")
     suspend fun getScannedTickets(eventId: String): Int
+
+    @Query("DELETE FROM tickets WHERE eventCode = :eventCode")
+    suspend fun deleteTicketsByCode(eventCode: String)
 }
 
 @Dao

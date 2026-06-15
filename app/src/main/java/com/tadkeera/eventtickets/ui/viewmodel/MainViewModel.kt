@@ -56,6 +56,11 @@ class MainViewModel @Inject constructor(
     private val _scanResult = MutableStateFlow<ScanResult>(ScanResult.Idle)
     val scanResult: StateFlow<ScanResult> = _scanResult.asStateFlow()
 
+    init {
+        // Run database backup automatically when the app is opened
+        backupDatabase()
+    }
+
     fun resetScanResult() {
         _scanResult.value = ScanResult.Idle
     }
@@ -63,6 +68,7 @@ class MainViewModel @Inject constructor(
     fun createEvent(name: String, date: Long) {
         viewModelScope.launch {
             repository.addEvent(Event(eventName = name, eventDate = date))
+            backupDatabase()
         }
     }
 
@@ -103,6 +109,14 @@ class MainViewModel @Inject constructor(
                 isDefault = isDefault
             )
             repository.addDesign(design)
+            backupDatabase()
+        }
+    }
+
+    fun deleteOrder(eventCode: String) {
+        viewModelScope.launch {
+            repository.deleteOrder(eventCode)
+            backupDatabase()
         }
     }
 
@@ -121,31 +135,12 @@ class MainViewModel @Inject constructor(
                 }
                 reader.close()
                 if (guestNames.isNotEmpty()) {
-                    // Save to database
-                    // We need a repository method to add guest names. Let's do it directly or add to repository.
-                    // Wait, repository has a direct way or we can add to it.
-                    // Let's add standard guestNameDao insertion or use database directly or insert.
-                    // Let's check how guestNameDao can insert: `insertGuestNames(names)`
-                    // Yes, we will use it!
-                    val db = com.tadkeera.eventtickets.data.TadkeeraDatabase::class.java
-                    // We can inject database or repository. Repository has `guestDao` or `addGuestNames`. Let's use database or DAO.
-                    // Actually, the TicketRepository has a guestDao reference: `private val guestDao: GuestNameDao`. Let's check if it has a guestDao method. Yes, let's look at TicketRepository.
-                    // Let's see: `suspend fun addGuestNames(names: List<GuestName>) = guestDao.insertGuestNames(names)`
-                    // Oh, wait, TicketRepository doesn't have `addGuestNames` yet, but it has `guestDao`!
-                    // Let's edit TicketRepository to expose a method or let's use it directly.
-                    // Let's write standard implementation.
+                    repository.addGuestNames(guestNames)
+                    backupDatabase()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-        }
-    }
-
-    fun uploadGuestNames(eventId: String, names: List<String>) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val guestNames = names.map { GuestName(eventId = eventId, name = it) }
-            // Save to DB
-            // We can add a method to Repository or call dao directly if accessible.
         }
     }
 
@@ -157,7 +152,12 @@ class MainViewModel @Inject constructor(
                 _scanResult.value = ScanResult.Invalid
             } else {
                 if (ticket.isScanned) {
-                    _scanResult.value = ScanResult.Duplicate(ticket, ticket.scannedAt ?: System.currentTimeMillis())
+                    val updated = ticket.copy(
+                        scanCount = ticket.scanCount + 1
+                    )
+                    repository.updateTicket(updated)
+                    backupDatabase()
+                    _scanResult.value = ScanResult.Duplicate(updated, ticket.scannedAt ?: System.currentTimeMillis())
                 } else {
                     val updated = ticket.copy(
                         isScanned = true,
@@ -165,6 +165,7 @@ class MainViewModel @Inject constructor(
                         scanCount = 1
                     )
                     repository.updateTicket(updated)
+                    backupDatabase()
                     _scanResult.value = ScanResult.Success(updated)
                 }
             }
@@ -184,17 +185,7 @@ class MainViewModel @Inject constructor(
                 val eventCode = EventCodeGenerator.generateEventCode()
                 
                 // Fetch guest names if enabled
-                val db = com.tadkeera.eventtickets.data.TadkeeraDatabase::class.java
-                // Wait, let's fetch GuestName from local database using guestNameDao
-                // Let's access database from repository or inject.
-                // We will add the database access helper.
-                // For simplicity, let's get guest names from DB:
-                // We will add helper methods in Repository.
-                
-                // Let's mock or fetch names
-                // Let's query guest names for event:
-                val guestNames = mutableListOf<String>()
-                // We will get them in the Repository update.
+                val guestNames = repository.getGuestNames(eventId).firstOrNull()?.map { it.name } ?: emptyList()
                 
                 val tickets = mutableListOf<Ticket>()
                 val charPool : List<Char> = ('A'..'Z') + ('0'..'9')
@@ -219,13 +210,31 @@ class MainViewModel @Inject constructor(
                 
                 // Update event with code
                 repository.updateEvent(event.copy(eventCode = eventCode))
+                backupDatabase()
+                
+                // Determine output directory based on app folder structure inside the event subfolder
+                val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
+                val cleanEventName = event.eventName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                var eventDir = File(appDir, cleanEventName)
+                
+                try {
+                    if (!eventDir.exists()) {
+                        val created = eventDir.mkdirs()
+                        if (!created) {
+                            eventDir = File(context.getExternalFilesDir(null), "Tadkeera/$cleanEventName")
+                            if (!eventDir.exists()) eventDir.mkdirs()
+                        }
+                    }
+                } catch (e: Exception) {
+                    eventDir = File(context.getExternalFilesDir(null), "Tadkeera/$cleanEventName")
+                    if (!eventDir.exists()) eventDir.mkdirs()
+                }
+                
+                val outputFile = File(eventDir, "Tadkeera_Tickets_${eventCode}.pdf")
                 
                 if (design != null && design.pdfTemplatePath.isNotEmpty()) {
                     val pdfFile = File(design.pdfTemplatePath)
                     if (pdfFile.exists()) {
-                        val outputDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                        val outputFile = File(outputDir, "Tadkeera_Tickets_${eventCode}.pdf")
-                        
                         generatePdfTickets(tickets, pdfFile, outputFile, design)
                         withContext(Dispatchers.Main) {
                             onComplete(outputFile)
@@ -235,8 +244,6 @@ class MainViewModel @Inject constructor(
                 }
                 
                 // Fallback: Generate simple tickets without template if no design uploaded
-                val outputDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val outputFile = File(outputDir, "Tadkeera_Tickets_${eventCode}.pdf")
                 generateSimplePdfTickets(tickets, outputFile)
                 withContext(Dispatchers.Main) {
                     onComplete(outputFile)
@@ -274,13 +281,10 @@ class MainViewModel @Inject constructor(
                 val qrImage = Image.getInstance(stream.toByteArray())
                 
                 // Position QR Code
-                // Map percentages or screen pixels to iText points (usually 72 points per inch, standard page size like A4 is 595 x 842 points)
                 val pageSize = reader.getPageSize(1)
                 val pdfWidth = pageSize.width
                 val pdfHeight = pageSize.height
                 
-                // Design coordinates are stored as normalized ratio (0.0 to 1.0) or DP.
-                // Let's assume normalized ratio relative to page width and height!
                 val qX = design.qrCodeX * pdfWidth
                 val qY = (1.0f - design.qrCodeY) * pdfHeight - (design.qrCodeHeight * pdfHeight) // invert Y for PDF coordinate system
                 val qW = design.qrCodeWidth * pdfWidth
@@ -294,7 +298,7 @@ class MainViewModel @Inject constructor(
                 val eventCodeText = "${ticket.eventCode} - ${ticket.ticketNumber}"
                 val fontBase = com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
                 overContent.beginText()
-                overContent.setFontAndSize(fontBase, design.eventCodeSize * 20f) // Scale size appropriately
+                overContent.setFontAndSize(fontBase, design.eventCodeSize * 20f)
                 
                 val ecX = design.eventCodeX * pdfWidth
                 val ecY = (1.0f - design.eventCodeY) * pdfHeight
@@ -304,8 +308,12 @@ class MainViewModel @Inject constructor(
                 // 3. Guest Name (if enabled)
                 if (design.showGuestName && ticket.guestName.isNotEmpty()) {
                     overContent.beginText()
-                    // Use a font that supports Arabic text (Aria Unicode or standard system font if available, or simplified fallback)
-                    val fontArabic = com.itextpdf.text.pdf.BaseFont.createFont("assets/fonts/arial.ttf", com.itextpdf.text.pdf.BaseFont.IDENTITY_H, com.itextpdf.text.pdf.BaseFont.EMBEDDED)
+                    // Safe Arabic font fallback to avoid crashes if arial.ttf is not packaged
+                    val fontArabic = try {
+                        com.itextpdf.text.pdf.BaseFont.createFont("assets/fonts/arial.ttf", com.itextpdf.text.pdf.BaseFont.IDENTITY_H, com.itextpdf.text.pdf.BaseFont.EMBEDDED)
+                    } catch (e: Exception) {
+                        com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
+                    }
                     overContent.setFontAndSize(fontArabic, design.guestNameSize * 20f)
                     val gnX = design.guestNameX * pdfWidth
                     val gnY = (1.0f - design.guestNameY) * pdfHeight
@@ -380,5 +388,38 @@ class MainViewModel @Inject constructor(
             }
         }
         return bitmap
+    }
+
+    fun backupDatabase() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dbFile = context.getDatabasePath("tadkeera_db")
+                if (dbFile.exists()) {
+                    val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
+                    var backupDir = File(appDir, "BACKUP")
+                    try {
+                        if (!backupDir.exists()) {
+                            val created = backupDir.mkdirs()
+                            if (!created) {
+                                backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
+                                if (!backupDir.exists()) backupDir.mkdirs()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
+                        if (!backupDir.exists()) backupDir.mkdirs()
+                    }
+                    
+                    val destFile = File(backupDir, "tadkeera_db_backup.db")
+                    dbFile.inputStream().use { input ->
+                        destFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }
