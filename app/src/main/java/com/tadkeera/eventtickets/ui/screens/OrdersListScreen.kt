@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.tadkeera.eventtickets.data.entities.Ticket
 import com.tadkeera.eventtickets.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
