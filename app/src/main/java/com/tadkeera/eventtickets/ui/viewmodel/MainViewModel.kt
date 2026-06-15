@@ -116,6 +116,15 @@ class MainViewModel @Inject constructor(
     fun deleteOrder(eventCode: String) {
         viewModelScope.launch {
             repository.deleteOrder(eventCode)
+            // Delete internal PDF if exists
+            try {
+                val internalFile = getInternalPdfFile(eventCode)
+                if (internalFile.exists()) {
+                    internalFile.delete()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             backupDatabase()
         }
     }
@@ -172,6 +181,54 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // Helper to get internal PDF path
+    fun getInternalPdfFile(eventCode: String): File {
+        val dir = File(context.filesDir, "Tadkeera/GeneratedPDFs")
+        if (!dir.exists()) dir.mkdirs()
+        return File(dir, "${eventCode}.pdf")
+    }
+
+    // Function to download/copy the internal PDF to event shared storage
+    fun downloadPdfToSharedStorage(eventCode: String, eventName: String, onResult: (Boolean, File?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val internalFile = getInternalPdfFile(eventCode)
+                if (!internalFile.exists()) {
+                    withContext(Dispatchers.Main) { onResult(false, null) }
+                    return@launch
+                }
+                
+                // Shared storage event directory
+                val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
+                val cleanEventName = eventName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                var eventDir = File(appDir, cleanEventName)
+                
+                if (!eventDir.exists()) {
+                    val created = eventDir.mkdirs()
+                    if (!created) {
+                        eventDir = File(context.getExternalFilesDir(null), "Tadkeera/$cleanEventName")
+                        if (!eventDir.exists()) eventDir.mkdirs()
+                    }
+                }
+                
+                val destFile = File(eventDir, "${eventCode}.pdf")
+                internalFile.inputStream().use { input ->
+                    destFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    onResult(true, destFile)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onResult(false, null)
+                }
+            }
+        }
+    }
+
     // Ticket generation & PDF rendering
     suspend fun issueTickets(
         eventId: String,
@@ -212,25 +269,10 @@ class MainViewModel @Inject constructor(
                 repository.updateEvent(event.copy(eventCode = eventCode))
                 backupDatabase()
                 
-                // Determine output directory based on app folder structure inside the event subfolder
-                val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
-                val cleanEventName = event.eventName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                var eventDir = File(appDir, cleanEventName)
-                
-                try {
-                    if (!eventDir.exists()) {
-                        val created = eventDir.mkdirs()
-                        if (!created) {
-                            eventDir = File(context.getExternalFilesDir(null), "Tadkeera/$cleanEventName")
-                            if (!eventDir.exists()) eventDir.mkdirs()
-                        }
-                    }
-                } catch (e: Exception) {
-                    eventDir = File(context.getExternalFilesDir(null), "Tadkeera/$cleanEventName")
-                    if (!eventDir.exists()) eventDir.mkdirs()
-                }
-                
-                val outputFile = File(eventDir, "Tadkeera_Tickets_${eventCode}.pdf")
+                // We now save the generated PDF internally first as requested!
+                val internalDir = File(context.filesDir, "Tadkeera/GeneratedPDFs")
+                if (!internalDir.exists()) internalDir.mkdirs()
+                val outputFile = File(internalDir, "${eventCode}.pdf")
                 
                 if (design != null && design.pdfTemplatePath.isNotEmpty()) {
                     val pdfFile = File(design.pdfTemplatePath)

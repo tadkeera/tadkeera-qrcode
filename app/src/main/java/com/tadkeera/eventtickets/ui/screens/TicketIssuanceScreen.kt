@@ -4,6 +4,8 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -12,10 +14,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.navigation.NavController
@@ -36,11 +39,23 @@ fun TicketIssuanceScreen(
 
     var ticketCountText by remember { mutableStateOf("10") }
     var isGenerating by remember { mutableStateOf(false) }
-    var generatedFile by remember { mutableStateOf<File?>(null) }
+
+    val eventState = viewModel.getEventFlow(eventId).collectAsState(initial = null)
+    val event = eventState.value
 
     val designs by viewModel.getDesignsFlow(eventId).collectAsState(initial = emptyList())
     var selectedDesign by remember { mutableStateOf<TicketDesign?>(null) }
     var isDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Fetch already generated batches/codes by grouping tickets
+    val tickets by viewModel.getTicketsFlow(eventId).collectAsState(initial = emptyList())
+    val generatedBatches = remember(tickets) {
+        tickets.groupBy { it.eventCode }
+            .map { (eventCode, ticketList) ->
+                Pair(eventCode, ticketList.size)
+            }
+            .filter { it.first.isNotEmpty() }
+    }
 
     LaunchedEffect(designs) {
         if (designs.isNotEmpty() && selectedDesign == null) {
@@ -64,7 +79,7 @@ fun TicketIssuanceScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -133,8 +148,6 @@ fun TicketIssuanceScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
             // Action Button
             if (isGenerating) {
                 CircularProgressIndicator()
@@ -151,9 +164,8 @@ fun TicketIssuanceScreen(
                         coroutineScope.launch {
                             viewModel.issueTickets(eventId, count, selectedDesign) { file ->
                                 isGenerating = false
-                                generatedFile = file
                                 if (file != null) {
-                                    Toast.makeText(context, "تم إصدار التذاكر وإنشاء الملف بنجاح!", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "تم حفظ التذاكر بملف PDF داخلي بنجاح! حملها للذاكرة من الأسفل.", Toast.LENGTH_LONG).show()
                                 } else {
                                     Toast.makeText(context, "فشل إصدار التذاكر، يرجى المحاولة لاحقاً", Toast.LENGTH_LONG).show()
                                 }
@@ -167,76 +179,91 @@ fun TicketIssuanceScreen(
                 }
             }
 
-            // PDF Share / Open options
-            generatedFile?.let { file ->
-                Card(
+            HorizontalDivider()
+
+            // Header for List of Generated Files inside the app
+            Text(
+                "ملفات التذاكر الصادرة والمحفوظة داخل التطبيق:",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // List of generated PDF files
+            if (generatedBatches.isEmpty()) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text("لا توجد ملفات تذاكر صادرة حالياً", color = Color.Gray)
+                }
+            } else {
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            "تم حفظ التذاكر بنجاح في مجلد التنزيلات!",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            file.name,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                    items(generatedBatches) { batch ->
+                        val eventCode = batch.first
+                        val ticketCount = batch.second
+                        
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
-                            Button(
-                                onClick = {
-                                    try {
-                                        val uri = FileProvider.getUriForFile(
-                                            context,
-                                            "${context.packageName}.fileprovider",
-                                            file
-                                        )
-                                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(uri, "application/pdf")
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "لا يتوفر قارئ PDF على هذا الجهاز لتشغيل الملف", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("فتح ملف PDF", color = MaterialTheme.colorScheme.primaryContainer)
-                            }
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("كود الملف: $eventCode.pdf", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                                    Text("العدد: $ticketCount تذكرة مدمجة", style = MaterialTheme.typography.bodySmall)
+                                }
 
-                            Button(
-                                onClick = {
-                                    val uri = FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        file
-                                    )
-                                    val intent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "application/pdf"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    // 1. Share Button
+                                    Button(
+                                        onClick = {
+                                            val internalFile = viewModel.getInternalPdfFile(eventCode)
+                                            if (internalFile.exists()) {
+                                                val uri = FileProvider.getUriForFile(
+                                                    context,
+                                                    "${context.packageName}.fileprovider",
+                                                    internalFile
+                                                )
+                                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "application/pdf"
+                                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                context.startActivity(Intent.createChooser(intent, "مشاركة الملف"))
+                                            } else {
+                                                Toast.makeText(context, "الملف الداخلي غير موجود", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                        modifier = Modifier.padding(horizontal = 2.dp)
+                                    ) {
+                                        Text("مشاركة")
                                     }
-                                    context.startActivity(Intent.createChooser(intent, "مشاركة التذاكر"))
-                                },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                            ) {
-                                Text("مشاركة الملف")
+
+                                    // 2. Download Button
+                                    Button(
+                                        onClick = {
+                                            viewModel.downloadPdfToSharedStorage(eventCode, event?.eventName ?: "مناسبة") { success, file ->
+                                                if (success && file != null) {
+                                                    Toast.makeText(context, "تم تحميل الملف بنجاح إلى: Tadkeera/${event?.eventName}/${eventCode}.pdf", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    Toast.makeText(context, "فشل تحميل الملف، يرجى التحقق من صلاحيات التخزين", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Text("تحميل")
+                                    }
+                                }
                             }
                         }
                     }
