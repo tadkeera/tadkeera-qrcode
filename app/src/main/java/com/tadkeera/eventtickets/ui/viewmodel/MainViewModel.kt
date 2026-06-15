@@ -37,6 +37,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 
+sealed class ScanResult {
+    object Idle : ScanResult()
+    data class Success(val ticket: Ticket) : ScanResult()
+    data class Duplicate(val ticket: Ticket, val lastScannedAt: Long) : ScanResult()
+    object Invalid : ScanResult()
+}
+
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: TicketRepository,
