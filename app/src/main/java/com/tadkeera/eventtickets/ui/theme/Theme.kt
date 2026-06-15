@@ -9,17 +9,19 @@ import androidx.compose.ui.graphics.Color
 
 private val Blue700 = Color(0xFF1976D2)
 private val Orange700 = Color(0xFFFF6F00)
+private val Pink800 = Color(0xFFAD1457)
+private val Pink400 = Color(0xFFEC407A)
 
 private val DarkColorScheme = darkColorScheme(
     primary = Blue700,
     secondary = Orange700,
-    tertiary = Color.Pink800
+    tertiary = Pink800
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = Blue700,
     secondary = Orange700,
-    tertiary = Color.Pink400
+    tertiary = Pink400
 )
 
 @Composable
