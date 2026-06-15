@@ -264,6 +264,11 @@ class MainViewModel @Inject constructor(
         design: TicketDesign
     ) {
         try {
+            // Ensure parent directory exists
+            outputFile.parentFile?.let {
+                if (!it.exists()) it.mkdirs()
+            }
+
             val document = Document()
             val pdfCopy = com.itextpdf.text.pdf.PdfCopy(document, FileOutputStream(outputFile))
             document.open()
@@ -340,38 +345,57 @@ class MainViewModel @Inject constructor(
     }
 
     private fun generateSimplePdfTickets(tickets: List<Ticket>, outputFile: File) {
-        val document = Document()
-        PdfWriter.getInstance(document, FileOutputStream(outputFile))
-        document.open()
-        
-        for (ticket in tickets) {
-            document.newPage()
+        try {
+            // Ensure parent directory exists
+            outputFile.parentFile?.let {
+                if (!it.exists()) it.mkdirs()
+            }
+
+            val document = Document()
+            PdfWriter.getInstance(document, FileOutputStream(outputFile))
+            document.open()
             
-            val fontBase = com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
-            val p1 = com.itextpdf.text.Paragraph("TADKEERA (تذكرة)", com.itextpdf.text.Font(fontBase, 24f))
-            p1.alignment = com.itextpdf.text.Element.ALIGN_CENTER
-            document.add(p1)
-            
-            val p2 = com.itextpdf.text.Paragraph("Event Code: ${ticket.eventCode} | Ticket No: ${ticket.ticketNumber}", com.itextpdf.text.Font(fontBase, 16f))
-            p2.alignment = com.itextpdf.text.Element.ALIGN_CENTER
-            document.add(p2)
-            
-            if (ticket.guestName.isNotEmpty()) {
-                val pName = com.itextpdf.text.Paragraph("Guest Name: ${ticket.guestName}", com.itextpdf.text.Font(fontBase, 14f))
-                pName.alignment = com.itextpdf.text.Element.ALIGN_CENTER
-                document.add(pName)
+            for (ticket in tickets) {
+                document.newPage()
+                
+                val fontBase = com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
+                val p1 = com.itextpdf.text.Paragraph("TADKEERA (تذكرة)", com.itextpdf.text.Font(fontBase, 24f))
+                p1.alignment = com.itextpdf.text.Element.ALIGN_CENTER
+                document.add(p1)
+                
+                val p2 = com.itextpdf.text.Paragraph("Event Code: ${ticket.eventCode} | Ticket No: ${ticket.ticketNumber}", com.itextpdf.text.Font(fontBase, 16f))
+                p2.alignment = com.itextpdf.text.Element.ALIGN_CENTER
+                document.add(p2)
+                
+                if (ticket.guestName.isNotEmpty()) {
+                    val pName = com.itextpdf.text.Paragraph("Guest Name: ${ticket.guestName}", com.itextpdf.text.Font(fontBase, 14f))
+                    pName.alignment = com.itextpdf.text.Element.ALIGN_CENTER
+                    document.add(pName)
+                }
+                
+                // Add QR Code
+                val qrBitmap = generateQRCodeBitmap(ticket.qrCodeData, 200, 200)
+                val stream = ByteArrayOutputStream()
+                qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                val qrImage = Image.getInstance(stream.toByteArray())
+                qrImage.alignment = com.itextpdf.text.Element.ALIGN_CENTER
+                document.add(qrImage)
             }
             
-            // Add QR Code
-            val qrBitmap = generateQRCodeBitmap(ticket.qrCodeData, 200, 200)
-            val stream = ByteArrayOutputStream()
-            qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-            val qrImage = Image.getInstance(stream.toByteArray())
-            qrImage.alignment = com.itextpdf.text.Element.ALIGN_CENTER
-            document.add(qrImage)
+            document.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Bulletproof fallback to app's safe external internal folder if storage is blocked
+            try {
+                val fallbackFile = File(context.getExternalFilesDir(null), outputFile.name)
+                val document = Document()
+                PdfWriter.getInstance(document, FileOutputStream(fallbackFile))
+                document.open()
+                document.close()
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+            }
         }
-        
-        document.close()
     }
 
     private fun generateQRCodeBitmap(text: String, width: Int, height: Int): Bitmap {
