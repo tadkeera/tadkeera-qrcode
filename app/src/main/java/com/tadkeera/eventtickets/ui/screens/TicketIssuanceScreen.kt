@@ -179,7 +179,7 @@ fun TicketIssuanceScreen(
                 }
             }
 
-            HorizontalDivider()
+            Divider()
 
             // Header for List of Generated Files inside the app
             Text(
