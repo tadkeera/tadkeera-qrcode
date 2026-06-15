@@ -26,6 +26,10 @@ class TicketRepository @Inject constructor(
 
     fun getDesigns(eventId: String) = designDao.getDesignsForEvent(eventId)
     suspend fun addDesign(design: TicketDesign) = designDao.insertDesign(design)
+    suspend fun getDefaultDesign(eventId: String) = designDao.getDefaultDesign(eventId)
+    
+    fun getGuestNames(eventId: String) = guestDao.getGuestNames(eventId)
+    suspend fun addGuestNames(names: List<GuestName>) = guestDao.insertGuestNames(names)
     
     suspend fun getStats(eventId: String): Pair<Int, Int> {
         val total = ticketDao.getTotalTickets(eventId)
