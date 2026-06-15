@@ -37,13 +37,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 
-sealed class ScanResult {
-    object Idle : ScanResult()
-    data class Success(val ticket: Ticket) : ScanResult()
-    data class Duplicate(val ticket: Ticket, val lastScannedAt: Long) : ScanResult()
-    object Invalid : ScanResult()
-}
-
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: TicketRepository,
@@ -305,35 +298,49 @@ class MainViewModel @Inject constructor(
         outputFile: File,
         design: TicketDesign
     ) {
+        var tempMultiPageFile: File? = null
         try {
             // Ensure parent directory exists
             outputFile.parentFile?.let {
                 if (!it.exists()) it.mkdirs()
             }
 
+            // 1. Create temporary multi-page PDF containing cloned blank pages of the template
+            tempMultiPageFile = File(context.cacheDir, "temp_multi_page_${System.currentTimeMillis()}.pdf")
             val document = Document()
-            val pdfCopy = com.itextpdf.text.pdf.PdfCopy(document, FileOutputStream(outputFile))
+            val copy = com.itextpdf.text.pdf.PdfCopy(document, FileOutputStream(tempMultiPageFile))
             document.open()
             
-            for (ticket in tickets) {
-                val reader = PdfReader(templateFile.absolutePath)
-                val tempOut = ByteArrayOutputStream()
-                val stamper = PdfStamper(reader, tempOut)
-                val overContent = stamper.getOverContent(1)
+            val templateReader = PdfReader(templateFile.absolutePath)
+            val importedPage = copy.getImportedPage(templateReader, 1)
+            for (i in 1..tickets.size) {
+                copy.addPage(importedPage)
+            }
+            templateReader.close()
+            document.close()
+            copy.close()
+
+            // 2. Open single PdfStamper over the cloned blank pages, injecting QR code and text on each page
+            val reader2 = PdfReader(tempMultiPageFile.absolutePath)
+            val stamper = PdfStamper(reader2, FileOutputStream(outputFile))
+            
+            for (i in 0 until tickets.size) {
+                val ticket = tickets[i]
+                val pageNum = i + 1
+                val overContent = stamper.getOverContent(pageNum)
                 
-                // 1. QR Code
+                // Draw QR Code
                 val qrBitmap = generateQRCodeBitmap(ticket.qrCodeData, 300, 300)
                 val stream = ByteArrayOutputStream()
                 qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
                 val qrImage = Image.getInstance(stream.toByteArray())
                 
-                // Position QR Code
-                val pageSize = reader.getPageSize(1)
+                val pageSize = reader2.getPageSize(pageNum)
                 val pdfWidth = pageSize.width
                 val pdfHeight = pageSize.height
                 
                 val qX = design.qrCodeX * pdfWidth
-                val qY = (1.0f - design.qrCodeY) * pdfHeight - (design.qrCodeHeight * pdfHeight) // invert Y for PDF coordinate system
+                val qY = (1.0f - design.qrCodeY) * pdfHeight - (design.qrCodeHeight * pdfHeight)
                 val qW = design.qrCodeWidth * pdfWidth
                 val qH = design.qrCodeHeight * pdfHeight
                 
@@ -341,7 +348,7 @@ class MainViewModel @Inject constructor(
                 qrImage.scaleAbsolute(qW, qH)
                 overContent.addImage(qrImage)
                 
-                // 2. Event Code & Ticket Number
+                // Draw Event Code & Ticket Number
                 val eventCodeText = "${ticket.eventCode} - ${ticket.ticketNumber}"
                 val fontBase = com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
                 overContent.beginText()
@@ -352,7 +359,7 @@ class MainViewModel @Inject constructor(
                 overContent.showTextAligned(PdfContentByte.ALIGN_CENTER, eventCodeText, ecX, ecY, 0f)
                 overContent.endText()
                 
-                // 3. Guest Name (if enabled)
+                // Draw Guest Name (if enabled)
                 if (design.showGuestName && ticket.guestName.isNotEmpty()) {
                     overContent.beginText()
                     // Safe Arabic font fallback to avoid crashes if arial.ttf is not packaged
@@ -367,22 +374,22 @@ class MainViewModel @Inject constructor(
                     overContent.showTextAligned(PdfContentByte.ALIGN_CENTER, ticket.guestName, gnX, gnY, 0f)
                     overContent.endText()
                 }
-                
-                stamper.close()
-                reader.close()
-                
-                // Append this stamped page to output PDF
-                val singlePageReader = PdfReader(tempOut.toByteArray())
-                pdfCopy.addPage(pdfCopy.getImportedPage(singlePageReader, 1))
-                singlePageReader.close()
             }
             
-            document.close()
-            pdfCopy.close()
+            stamper.close()
+            reader2.close()
         } catch (e: Exception) {
             e.printStackTrace()
             // Fallback to simple PDF generation if template processing fails
             generateSimplePdfTickets(tickets, outputFile)
+        } finally {
+            try {
+                tempMultiPageFile?.let {
+                    if (it.exists()) it.delete()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
