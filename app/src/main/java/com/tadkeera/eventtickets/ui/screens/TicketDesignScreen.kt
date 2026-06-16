@@ -216,7 +216,7 @@ fun TicketDesignScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "اسحب المربعات لتحديد موضعها، أو اسحب زر السهم الموجود بالزاوية لتحريك وتكبير وتصغير المربع في جميع الاتجاهات:",
+                        text = "اسحب المربعات لتحديد موضعها. لمربع الباركود، استخدم مقبض الأسهم الرأسية لتحريكه لأعلى وأسفل، ومقبض الأسهم الأفقية لتحريكه يميناً ويساراً:",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -289,7 +289,7 @@ fun TicketDesignScreen(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // 1. Draggable QR Code overlay with Drag & Resize Handle
+                        // 1. Draggable QR Code overlay with Explicit Horizontal/Vertical/Resize handles
                         if (isQrActive) {
                             Box(
                                 modifier = Modifier
@@ -322,33 +322,62 @@ fun TicketDesignScreen(
                                     color = MaterialTheme.colorScheme.primary
                                 )
 
-                                // Drag & Resize Handle (Arrow) at Bottom-End allowing drag in all directions!
+                                // Handle 1: Vertical Arrow on the LEFT strictly for Up/Down movement!
                                 Box(
                                     modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .size(28.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 4.dp))
+                                        .align(Alignment.CenterStart)
+                                        .size(24.dp)
+                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
                                         .pointerInput(Unit) {
                                             detectDragGestures { change, dragAmount ->
                                                 change.consume()
-                                                // Resizing using drag details
-                                                val newWidthPx = (qrW * containerWidth) + dragAmount.x
-                                                qrW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
-                                                qrH = qrW // Keep square ratio
-                                                
-                                                // Dragging/Moving the box too
-                                                qrX = (qrX + dragAmount.x / (containerWidth * 3f)).coerceIn(0f, 1f - qrW)
-                                                qrY = (qrY + dragAmount.y / (containerHeight * 3f)).coerceIn(0f, 1f - qrH)
+                                                qrY = (qrY + dragAmount.y / containerHeight).coerceIn(0f, 1f - qrH)
                                             }
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("↕️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
+
+                                // Handle 2: Horizontal Arrow on the TOP strictly for Left/Right movement!
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .size(24.dp)
+                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                qrX = (qrX + dragAmount.x / containerWidth).coerceIn(0f, 1f - qrW)
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("↔️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                // Handle 3: Corner Handle for Resizing and Free dragging!
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(24.dp)
+                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 4.dp))
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val newWidthPx = (qrW * containerWidth) + dragAmount.x
+                                                qrW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
+                                                qrH = qrW // Keep square
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("↗️", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
 
-                        // 2. Draggable Event Code overlay with Drag & Resize Handle
+                        // 2. Draggable Event Code overlay
                         if (isCodeActive) {
                             Box(
                                 modifier = Modifier
@@ -380,11 +409,11 @@ fun TicketDesignScreen(
                                     color = Color.Red
                                 )
 
-                                // Drag & Resize Handle (Arrow) at Bottom-End allowing drag in all directions!
+                                // Drag & Resize Handle
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .size(28.dp)
+                                        .size(24.dp)
                                         .background(Color.Red, RoundedCornerShape(topStart = 4.dp))
                                         .pointerInput(Unit) {
                                             detectDragGestures { change, dragAmount ->
@@ -393,20 +422,16 @@ fun TicketDesignScreen(
                                                 val newHeightPx = (codeH * containerHeight) + dragAmount.y
                                                 codeW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
                                                 codeH = (newHeightPx / containerHeight).coerceIn(0.04f, 0.3f)
-
-                                                // Dragging/Moving the box too
-                                                codeX = (codeX + dragAmount.x / (containerWidth * 3f)).coerceIn(0f, 1f - codeW)
-                                                codeY = (codeY + dragAmount.y / (containerHeight * 3f)).coerceIn(0f, 1f - codeH)
                                             }
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("↕️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("↗️", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
 
-                        // 3. Draggable Guest Name overlay with Drag & Resize Handle
+                        // 3. Draggable Guest Name overlay
                         if (isGuestActive && showGuestName) {
                             Box(
                                 modifier = Modifier
@@ -438,11 +463,11 @@ fun TicketDesignScreen(
                                     color = Color.Green
                                 )
 
-                                // Drag & Resize Handle (Arrow) at Bottom-End allowing drag in all directions!
+                                // Drag & Resize Handle
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .size(28.dp)
+                                        .size(24.dp)
                                         .background(Color.Green, RoundedCornerShape(topStart = 4.dp))
                                         .pointerInput(Unit) {
                                             detectDragGestures { change, dragAmount ->
@@ -451,15 +476,11 @@ fun TicketDesignScreen(
                                                 val newHeightPx = (guestH * containerHeight) + dragAmount.y
                                                 guestW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
                                                 guestH = (newHeightPx / containerHeight).coerceIn(0.04f, 0.3f)
-
-                                                // Dragging/Moving the box too
-                                                guestX = (guestX + dragAmount.x / (containerWidth * 3f)).coerceIn(0f, 1f - guestW)
-                                                guestY = (guestY + dragAmount.y / (containerHeight * 3f)).coerceIn(0f, 1f - guestH)
                                             }
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("↕️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("↗️", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -493,7 +514,7 @@ fun TicketDesignScreen(
             }
         }
 
-        // 1. Preview Design dialog
+        // 1. Preview Design dialog (Perfect Centered rendering layout)
         if (showPreviewDialog && pdfBitmap != null) {
             Dialog(
                 onDismissRequest = { showPreviewDialog = false },

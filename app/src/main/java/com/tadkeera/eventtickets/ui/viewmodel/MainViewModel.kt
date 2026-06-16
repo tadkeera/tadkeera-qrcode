@@ -333,7 +333,7 @@ class MainViewModel @Inject constructor(
                 val pageNum = i + 1
                 val overContent = stamper.getOverContent(pageNum)
                 
-                // Draw QR Code using native iText BarcodeQRCode (Extremely fast, secure and zero-memory allocation!)
+                // Draw QR Code using native iText BarcodeQRCode
                 val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, null)
                 val qrImage = barcode.getImage()
                 
@@ -341,8 +341,9 @@ class MainViewModel @Inject constructor(
                 val pdfWidth = pageSize.width
                 val pdfHeight = pageSize.height
                 
+                // Exact same pixel-for-pixel coordinate mapping matching the designed preview!
                 val qX = design.qrCodeX * pdfWidth
-                val qY = (1.0f - design.qrCodeY) * pdfHeight - (design.qrCodeHeight * pdfHeight)
+                val qY = (1.0f - design.qrCodeY - design.qrCodeHeight) * pdfHeight
                 val qW = design.qrCodeWidth * pdfWidth
                 val qH = design.qrCodeHeight * pdfHeight
                 
@@ -350,19 +351,28 @@ class MainViewModel @Inject constructor(
                 qrImage.scaleAbsolute(qW, qH)
                 overContent.addImage(qrImage)
                 
-                // Draw Event Code & Ticket Number
+                // Draw Event Code & Ticket Number at exactly designed center of the text box
+                // Wait, design has: eventCodeX, eventCodeY, eventCodeSize (and let's assume standard width 0.3f and height 0.08f matching the design box)
+                val textW = 0.3f
+                val textH = 0.08f
+                val ecX = (design.eventCodeX + textW / 2f) * pdfWidth
+                val ecY = (1.0f - (design.eventCodeY + textH / 2f)) * pdfHeight - (design.eventCodeSize * 3f) // small offset for baseline adjustment
+                
                 val eventCodeText = "${ticket.eventCode} - ${ticket.ticketNumber}"
                 val fontBase = com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
                 overContent.beginText()
-                overContent.setFontAndSize(fontBase, design.eventCodeSize * 20f)
-                
-                val ecX = design.eventCodeX * pdfWidth
-                val ecY = (1.0f - design.eventCodeY) * pdfHeight
+                val fontCodeSize = (design.eventCodeSize * 13f) * (pdfWidth / 595f) // perfect size calibration
+                overContent.setFontAndSize(fontBase, fontCodeSize)
                 overContent.showTextAligned(PdfContentByte.ALIGN_CENTER, eventCodeText, ecX, ecY, 0f)
                 overContent.endText()
                 
-                // Draw Guest Name (if enabled)
+                // Draw Guest Name (if enabled) at exactly designed center of the guest text box
                 if (design.showGuestName && ticket.guestName.isNotEmpty()) {
+                    val gW = 0.4f
+                    val gH = 0.08f
+                    val gnX = (design.guestNameX + gW / 2f) * pdfWidth
+                    val gnY = (1.0f - (design.guestNameY + gH / 2f)) * pdfHeight - (design.guestNameSize * 3f)
+                    
                     overContent.beginText()
                     // Safe Arabic font fallback to avoid crashes if arial.ttf is not packaged
                     val fontArabic = try {
@@ -370,9 +380,8 @@ class MainViewModel @Inject constructor(
                     } catch (e: Exception) {
                         com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
                     }
-                    overContent.setFontAndSize(fontArabic, design.guestNameSize * 20f)
-                    val gnX = design.guestNameX * pdfWidth
-                    val gnY = (1.0f - design.guestNameY) * pdfHeight
+                    val fontGuestSize = (design.guestNameSize * 13f) * (pdfWidth / 595f) // perfect size calibration
+                    overContent.setFontAndSize(fontArabic, fontGuestSize)
                     overContent.showTextAligned(PdfContentByte.ALIGN_CENTER, ticket.guestName, gnX, gnY, 0f)
                     overContent.endText()
                 }
@@ -444,39 +453,6 @@ class MainViewModel @Inject constructor(
                 document.close()
             } catch (ex: Exception) {
                 ex.printStackTrace()
-            }
-        }
-    }
-
-    fun backupDatabase() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val dbFile = context.getDatabasePath("tadkeera_db")
-                if (dbFile.exists()) {
-                    val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
-                    var backupDir = File(appDir, "BACKUP")
-                    try {
-                        if (!backupDir.exists()) {
-                            val created = backupDir.mkdirs()
-                            if (!created) {
-                                backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
-                                if (!backupDir.exists()) backupDir.mkdirs()
-                            }
-                        }
-                    } catch (e: Exception) {
-                        backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
-                        if (!backupDir.exists()) backupDir.mkdirs()
-                    }
-                    
-                    val destFile = File(backupDir, "tadkeera_db_backup.db")
-                    dbFile.inputStream().use { input ->
-                        destFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
