@@ -14,14 +14,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -68,11 +67,15 @@ fun TicketDesignScreen(
 
     var codeX by remember { mutableStateOf(0.1f) }
     var codeY by remember { mutableStateOf(0.4f) }
+    var codeW by remember { mutableStateOf(0.3f) }
+    var codeH by remember { mutableStateOf(0.08f) }
     var codeSize by remember { mutableStateOf(1.0f) }
     var isCodeActive by remember { mutableStateOf(false) }
 
     var guestX by remember { mutableStateOf(0.1f) }
     var guestY by remember { mutableStateOf(0.6f) }
+    var guestW by remember { mutableStateOf(0.4f) }
+    var guestH by remember { mutableStateOf(0.08f) }
     var guestSize by remember { mutableStateOf(1.0f) }
     var isGuestActive by remember { mutableStateOf(false) }
 
@@ -210,7 +213,7 @@ fun TicketDesignScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "اسحب العناصر وقم بقرصها (Pinch) لتغيير حجمها وتحديد موضعها على التذكرة:",
+                        text = "اسحب العناصر لتحديد موضعها، واسحب السهم في زاوية كل عنصر لتكبيره وتصغيره:",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -240,6 +243,31 @@ fun TicketDesignScreen(
                         }
                     }
 
+                    // Font size Sliders
+                    if (isCodeActive) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text("حجم خط كود التذكرة: ${String.format("%.1f", codeSize)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            Slider(
+                                value = codeSize,
+                                onValueChange = { codeSize = it },
+                                valueRange = 0.5f..3.0f,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    if (isGuestActive && showGuestName) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text("حجم خط اسم الضيف: ${String.format("%.1f", guestSize)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            Slider(
+                                value = guestSize,
+                                onValueChange = { guestSize = it },
+                                valueRange = 0.5f..3.0f,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
                     // Interactive PDF preview box
                     Box(
                         modifier = Modifier
@@ -258,18 +286,8 @@ fun TicketDesignScreen(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // 1. Draggable QR Code overlay
+                        // 1. Draggable QR Code overlay with Resize Handle Arrow
                         if (isQrActive) {
-                            var qrWidthPx by remember { mutableStateOf(containerWidth * qrW) }
-                            var qrHeightPx by remember { mutableStateOf(containerHeight * qrH) }
-                            
-                            val qrTransformState = rememberTransformableState { zoomChange, _, _ ->
-                                qrWidthPx = (qrWidthPx * zoomChange).coerceIn(40f, containerWidth.toFloat() * 0.5f)
-                                qrHeightPx = qrWidthPx // Keep square aspect ratio
-                                qrW = qrWidthPx / containerWidth
-                                qrH = qrHeightPx / containerHeight
-                            }
-
                             Box(
                                 modifier = Modifier
                                     .offset {
@@ -279,12 +297,11 @@ fun TicketDesignScreen(
                                         )
                                     }
                                     .size(
-                                        width = (qrW * containerWidth / 2.62f).dp, // conversion fallback for visualization
+                                        width = (qrW * containerWidth / 2.62f).dp,
                                         height = (qrH * containerHeight / 2.62f).dp
                                     )
                                     .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
                                     .background(Color.White.copy(alpha = 0.8f))
-                                    .transformable(state = qrTransformState)
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
@@ -301,15 +318,30 @@ fun TicketDesignScreen(
                                     textAlign = TextAlign.Center,
                                     color = MaterialTheme.colorScheme.primary
                                 )
+
+                                // Resize Handle (Arrow) at Bottom-End
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(24.dp)
+                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 4.dp))
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val newWidthPx = (qrW * containerWidth) + dragAmount.x
+                                                qrW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
+                                                qrH = qrW // Keep square ratio
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("↗️", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(2.dp))
+                                }
                             }
                         }
 
-                        // 2. Draggable Event Code & Ticket Number overlay
+                        // 2. Draggable Event Code overlay with Resize Handle Arrow
                         if (isCodeActive) {
-                            var codeTransformState = rememberTransformableState { zoomChange, _, _ ->
-                                codeSize = (codeSize * zoomChange).coerceIn(0.5f, 3.0f)
-                            }
-
                             Box(
                                 modifier = Modifier
                                     .offset {
@@ -318,16 +350,17 @@ fun TicketDesignScreen(
                                             (codeY * containerHeight).roundToInt()
                                         )
                                     }
-                                    .wrapContentSize()
+                                    .size(
+                                        width = (codeW * containerWidth / 2.62f).dp,
+                                        height = (codeH * containerHeight / 2.62f).dp
+                                    )
                                     .border(2.dp, Color.Red, RoundedCornerShape(4.dp))
                                     .background(Color.White.copy(alpha = 0.8f))
-                                    .padding(4.dp)
-                                    .transformable(state = codeTransformState)
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
-                                            codeX = (codeX + dragAmount.x / containerWidth).coerceIn(0f, 0.9f)
-                                            codeY = (codeY + dragAmount.y / containerHeight).coerceIn(0f, 0.95f)
+                                            codeX = (codeX + dragAmount.x / containerWidth).coerceIn(0f, 1f - codeW)
+                                            codeY = (codeY + dragAmount.y / containerHeight).coerceIn(0f, 1f - codeH)
                                         }
                                     },
                                 contentAlignment = Alignment.Center
@@ -338,15 +371,31 @@ fun TicketDesignScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.Red
                                 )
+
+                                // Resize Handle (Arrow) at Bottom-End
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(24.dp)
+                                        .background(Color.Red, RoundedCornerShape(topStart = 4.dp))
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val newWidthPx = (codeW * containerWidth) + dragAmount.x
+                                                val newHeightPx = (codeH * containerHeight) + dragAmount.y
+                                                codeW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
+                                                codeH = (newHeightPx / containerHeight).coerceIn(0.04f, 0.3f)
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("↗️", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(2.dp))
+                                }
                             }
                         }
 
-                        // 3. Draggable Guest Name overlay
+                        // 3. Draggable Guest Name overlay with Resize Handle Arrow
                         if (isGuestActive && showGuestName) {
-                            var guestTransformState = rememberTransformableState { zoomChange, _, _ ->
-                                guestSize = (guestSize * zoomChange).coerceIn(0.5f, 3.0f)
-                            }
-
                             Box(
                                 modifier = Modifier
                                     .offset {
@@ -355,16 +404,17 @@ fun TicketDesignScreen(
                                             (guestY * containerHeight).roundToInt()
                                         )
                                     }
-                                    .wrapContentSize()
+                                    .size(
+                                        width = (guestW * containerWidth / 2.62f).dp,
+                                        height = (guestH * containerHeight / 2.62f).dp
+                                    )
                                     .border(2.dp, Color.Green, RoundedCornerShape(4.dp))
                                     .background(Color.White.copy(alpha = 0.8f))
-                                    .padding(4.dp)
-                                    .transformable(state = guestTransformState)
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
-                                            guestX = (guestX + dragAmount.x / containerWidth).coerceIn(0f, 0.9f)
-                                            guestY = (guestY + dragAmount.y / containerHeight).coerceIn(0f, 0.95f)
+                                            guestX = (guestX + dragAmount.x / containerWidth).coerceIn(0f, 1f - guestW)
+                                            guestY = (guestY + dragAmount.y / containerHeight).coerceIn(0f, 1f - guestH)
                                         }
                                     },
                                 contentAlignment = Alignment.Center
@@ -375,6 +425,26 @@ fun TicketDesignScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.Green
                                 )
+
+                                // Resize Handle (Arrow) at Bottom-End
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(24.dp)
+                                        .background(Color.Green, RoundedCornerShape(topStart = 4.dp))
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val newWidthPx = (guestW * containerWidth) + dragAmount.x
+                                                val newHeightPx = (guestH * containerHeight) + dragAmount.y
+                                                guestW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
+                                                guestH = (newHeightPx / containerHeight).coerceIn(0.04f, 0.3f)
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("↗️", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(2.dp))
+                                }
                             }
                         }
                     }
