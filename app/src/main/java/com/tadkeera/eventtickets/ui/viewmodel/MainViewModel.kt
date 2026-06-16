@@ -82,6 +82,7 @@ class MainViewModel @Inject constructor(
         name: String,
         templatePath: String,
         qrCodeX: Float, qrCodeY: Float, qrCodeWidth: Float, qrCodeHeight: Float,
+        qrCodeRotation: Float = 0f,
         eventCodeX: Float, eventCodeY: Float, eventCodeSize: Float,
         guestNameX: Float, guestNameY: Float, guestNameSize: Float,
         showGuestName: Boolean,
@@ -96,12 +97,13 @@ class MainViewModel @Inject constructor(
                 qrCodeY = qrCodeY,
                 qrCodeWidth = qrCodeWidth,
                 qrCodeHeight = qrCodeHeight,
+                qrCodeRotation = qrCodeRotation,
                 eventCodeX = eventCodeX,
                 eventCodeY = eventCodeY,
                 eventCodeSize = eventCodeSize,
                 guestNameX = guestNameX,
-                guestNameY = guestNameY,
-                guestNameSize = guestNameSize,
+                guestNameY = guestY, // Note: using screen design state coordinates
+                guestNameSize = guestSize,
                 showGuestName = showGuestName,
                 isDefault = isDefault
             )
@@ -150,11 +152,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Ticket scanner
-    fun scanTicket(qrCodeData: String) {
+    // Isolated Event Scanner - Strictly verifies that ticket belongs to the current eventId!
+    fun scanTicket(eventId: String, qrCodeData: String) {
         viewModelScope.launch {
             val ticket = repository.getTicketByQR(qrCodeData)
-            if (ticket == null) {
+            // Strict check: if ticket does not exist, or belongs to a different event, it's completely INVALID!
+            if (ticket == null || ticket.eventId != eventId) {
                 _scanResult.value = ScanResult.Invalid
             } else {
                 if (ticket.isScanned) {
@@ -349,6 +352,10 @@ class MainViewModel @Inject constructor(
                 
                 qrImage.setAbsolutePosition(qX, qY)
                 qrImage.scaleAbsolute(qW, qH)
+                
+                // Set rotation angle matching the design setting!
+                qrImage.rotationDegrees = design.qrCodeRotation
+                
                 overContent.addImage(qrImage)
                 
                 // Draw Event Code & Ticket Number at exactly designed center of the text box
@@ -452,39 +459,6 @@ class MainViewModel @Inject constructor(
                 document.close()
             } catch (ex: Exception) {
                 ex.printStackTrace()
-            }
-        }
-    }
-
-    fun backupDatabase() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val dbFile = context.getDatabasePath("tadkeera_db")
-                if (dbFile.exists()) {
-                    val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
-                    var backupDir = File(appDir, "BACKUP")
-                    try {
-                        if (!backupDir.exists()) {
-                            val created = backupDir.mkdirs()
-                            if (!created) {
-                                backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
-                                if (!backupDir.exists()) backupDir.mkdirs()
-                            }
-                        }
-                    } catch (e: Exception) {
-                        backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
-                        if (!backupDir.exists()) backupDir.mkdirs()
-                    }
-                    
-                    val destFile = File(backupDir, "tadkeera_db_backup.db")
-                    dbFile.inputStream().use { input ->
-                        destFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }

@@ -37,6 +37,7 @@ data class TicketDesign(
     val qrCodeY: Float,
     val qrCodeWidth: Float,
     val qrCodeHeight: Float,
+    val qrCodeRotation: Float = 0f, // Added rotation in degrees (0, 90, 180, 270)
     val eventCodeX: Float,
     val eventCodeY: Float,
     val eventCodeSize: Float,

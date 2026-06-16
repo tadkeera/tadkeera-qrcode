@@ -170,7 +170,7 @@ fun BarcodeScannerScreen(
                                             .addOnSuccessListener { barcodes ->
                                                 if (barcodes.isNotEmpty() && !showResultDialog) {
                                                     val qrCode = barcodes.first().rawValue ?: ""
-                                                    viewModel.scanTicket(qrCode)
+                                                    viewModel.scanTicket(eventId, qrCode)
                                                 }
                                             }
                                             .addOnFailureListener {
@@ -308,7 +308,7 @@ fun BarcodeScannerScreen(
                     Button(
                         onClick = {
                             if (manualQRCode.length == 24) {
-                                viewModel.scanTicket(manualQRCode)
+                                viewModel.scanTicket(eventId, manualQRCode)
                                 manualQRCode = ""
                             } else {
                                 Toast.makeText(context, "الرمز يجب أن يتكون من 24 حرفاً", Toast.LENGTH_SHORT).show()

@@ -22,7 +22,7 @@ object DatabaseModule {
             context,
             TadkeeraDatabase::class.java,
             "tadkeera_db"
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     @Provides
