@@ -102,8 +102,8 @@ class MainViewModel @Inject constructor(
                 eventCodeY = eventCodeY,
                 eventCodeSize = eventCodeSize,
                 guestNameX = guestNameX,
-                guestNameY = guestY, // Note: using screen design state coordinates
-                guestNameSize = guestSize,
+                guestNameY = guestNameY,
+                guestNameSize = guestNameSize,
                 showGuestName = showGuestName,
                 isDefault = isDefault
             )
@@ -354,7 +354,7 @@ class MainViewModel @Inject constructor(
                 qrImage.scaleAbsolute(qW, qH)
                 
                 // Set rotation angle matching the design setting!
-                qrImage.rotationDegrees = design.qrCodeRotation
+                qrImage.setRotationDegrees(design.qrCodeRotation)
                 
                 overContent.addImage(qrImage)
                 
