@@ -12,7 +12,7 @@ import com.tadkeera.eventtickets.data.entities.*
         Ticket::class,
         GuestName::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class TadkeeraDatabase : RoomDatabase() {
