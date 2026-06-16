@@ -14,6 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,6 +66,7 @@ fun TicketDesignScreen(
     var qrY by remember { mutableStateOf(0.1f) }
     var qrW by remember { mutableStateOf(0.2f) }
     var qrH by remember { mutableStateOf(0.2f) }
+    var qrCodeRotation by remember { mutableStateOf(0f) }
     var isQrActive by remember { mutableStateOf(false) }
 
     var codeX by remember { mutableStateOf(0.1f) }
@@ -216,7 +218,7 @@ fun TicketDesignScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "اسحب المربعات لتحديد موضعها. لمربع الباركود، استخدم مقبض الأسهم الرأسية لتحريكه لأعلى وأسفل، ومقبض الأسهم الأفقية لتحريكه يميناً ويساراً:",
+                        text = "اسحب المربعات لتحديد موضعها. لمربع الباركود، استخدم حركة الإصبعين المتعاكسة (Pinch) لتكبيره وتصغيره، وزر التدوير لتعديل اتجاهه:",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -289,7 +291,7 @@ fun TicketDesignScreen(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // 1. Draggable QR Code overlay with Explicit Horizontal/Vertical/Resize handles
+                        // 1. Draggable QR Code overlay with Pinch-To-Zoom gesture (Resizing in all directions!)
                         if (isQrActive) {
                             Box(
                                 modifier = Modifier
@@ -306,10 +308,15 @@ fun TicketDesignScreen(
                                     .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
                                     .background(Color.White.copy(alpha = 0.8f))
                                     .pointerInput(Unit) {
-                                        detectDragGestures { change, dragAmount ->
-                                            change.consume()
-                                            qrX = (qrX + dragAmount.x / containerWidth).coerceIn(0f, 1f - qrW)
-                                            qrY = (qrY + dragAmount.y / containerHeight).coerceIn(0f, 1f - qrH)
+                                        detectTransformGestures { _, pan, zoom, _ ->
+                                            // Free movement with single finger drag
+                                            qrX = (qrX + pan.x / containerWidth).coerceIn(0f, 1f - qrW)
+                                            qrY = (qrY + pan.y / containerHeight).coerceIn(0f, 1f - qrH)
+                                            
+                                            // Smooth proportional scaling with two fingers pinch zoom!
+                                            val newWidthPx = (qrW * containerWidth) * zoom
+                                            qrW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
+                                            qrH = qrW // Keep square ratio
                                         }
                                     },
                                 contentAlignment = Alignment.Center
@@ -322,57 +329,19 @@ fun TicketDesignScreen(
                                     color = MaterialTheme.colorScheme.primary
                                 )
 
-                                // Handle 1: Vertical Arrow on the LEFT strictly for Up/Down movement!
+                                // Dedicated Rotation Button (🔄) in the corner of the Barcode Box!
                                 Box(
                                     modifier = Modifier
-                                        .align(Alignment.CenterStart)
+                                        .align(Alignment.TopEnd)
                                         .size(24.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                                        .pointerInput(Unit) {
-                                            detectDragGestures { change, dragAmount ->
-                                                change.consume()
-                                                qrY = (qrY + dragAmount.y / containerHeight).coerceIn(0f, 1f - qrH)
-                                            }
+                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(bottomStart = 4.dp))
+                                        .clickable {
+                                            qrCodeRotation = (qrCodeRotation + 90f) % 360f
+                                            Toast.makeText(context, "زاوية تدوير الباركود: ${qrCodeRotation.roundToInt()} درجة", Toast.LENGTH_SHORT).show()
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("↕️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                // Handle 2: Horizontal Arrow on the TOP strictly for Left/Right movement!
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopCenter)
-                                        .size(24.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                                        .pointerInput(Unit) {
-                                            detectDragGestures { change, dragAmount ->
-                                                change.consume()
-                                                qrX = (qrX + dragAmount.x / containerWidth).coerceIn(0f, 1f - qrW)
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("↔️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                // Handle 3: Corner Handle for Resizing and Free dragging!
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .size(24.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 4.dp))
-                                        .pointerInput(Unit) {
-                                            detectDragGestures { change, dragAmount ->
-                                                change.consume()
-                                                val newWidthPx = (qrW * containerWidth) + dragAmount.x
-                                                qrW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
-                                                qrH = qrW // Keep square
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("↗️", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text("🔄", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -662,6 +631,7 @@ fun TicketDesignScreen(
                                     qrCodeY = qrY,
                                     qrCodeWidth = qrW,
                                     qrCodeHeight = qrH,
+                                    qrCodeRotation = qrCodeRotation,
                                     eventCodeX = codeX,
                                     eventCodeY = codeY,
                                     eventCodeSize = codeSize,
