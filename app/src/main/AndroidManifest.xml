@@ -16,6 +16,8 @@
     <application
         android:name=".TadkeeraApplication"
         android:allowBackup="true"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@drawable/ic_tadkeera_logo"
@@ -27,7 +29,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Tadkeera">
+            android:theme="@style/Theme.Tadkeera"
+            android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
