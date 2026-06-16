@@ -170,9 +170,7 @@ fun BarcodeScannerScreen(
                                             .addOnSuccessListener { barcodes ->
                                                 if (barcodes.isNotEmpty() && !showResultDialog) {
                                                     val qrCode = barcodes.first().rawValue ?: ""
-                                                    if (qrCode.length == 24) {
-                                                        viewModel.scanTicket(qrCode)
-                                                    }
+                                                    viewModel.scanTicket(qrCode)
                                                 }
                                             }
                                             .addOnFailureListener {

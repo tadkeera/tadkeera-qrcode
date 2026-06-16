@@ -36,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import com.tadkeera.eventtickets.ui.viewmodel.MainViewModel
 import java.io.File
@@ -80,6 +82,7 @@ fun TicketDesignScreen(
     var isGuestActive by remember { mutableStateOf(false) }
 
     var showSaveDialog by remember { mutableStateOf(false) }
+    var showPreviewDialog by remember { mutableStateOf(false) }
     var designName by remember { mutableStateOf("") }
 
     // Launcher for PDF picker
@@ -213,7 +216,7 @@ fun TicketDesignScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "اسحب العناصر لتحديد موضعها، واسحب السهم في زاوية كل عنصر لتكبيره وتصغيره:",
+                        text = "اسحب المربعات لتحديد موضعها، أو اسحب زر السهم الموجود بالزاوية لتحريك وتكبير وتصغير المربع في جميع الاتجاهات:",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -286,7 +289,7 @@ fun TicketDesignScreen(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // 1. Draggable QR Code overlay with Resize Handle Arrow
+                        // 1. Draggable QR Code overlay with Drag & Resize Handle
                         if (isQrActive) {
                             Box(
                                 modifier = Modifier
@@ -319,28 +322,33 @@ fun TicketDesignScreen(
                                     color = MaterialTheme.colorScheme.primary
                                 )
 
-                                // Resize Handle (Arrow) at Bottom-End
+                                // Drag & Resize Handle (Arrow) at Bottom-End allowing drag in all directions!
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .size(24.dp)
+                                        .size(28.dp)
                                         .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 4.dp))
                                         .pointerInput(Unit) {
                                             detectDragGestures { change, dragAmount ->
                                                 change.consume()
+                                                // Resizing using drag details
                                                 val newWidthPx = (qrW * containerWidth) + dragAmount.x
                                                 qrW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
                                                 qrH = qrW // Keep square ratio
+                                                
+                                                // Dragging/Moving the box too
+                                                qrX = (qrX + dragAmount.x / (containerWidth * 3f)).coerceIn(0f, 1f - qrW)
+                                                qrY = (qrY + dragAmount.y / (containerHeight * 3f)).coerceIn(0f, 1f - qrH)
                                             }
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("↗️", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(2.dp))
+                                    Text("↕️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
 
-                        // 2. Draggable Event Code overlay with Resize Handle Arrow
+                        // 2. Draggable Event Code overlay with Drag & Resize Handle
                         if (isCodeActive) {
                             Box(
                                 modifier = Modifier
@@ -372,11 +380,11 @@ fun TicketDesignScreen(
                                     color = Color.Red
                                 )
 
-                                // Resize Handle (Arrow) at Bottom-End
+                                // Drag & Resize Handle (Arrow) at Bottom-End allowing drag in all directions!
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .size(24.dp)
+                                        .size(28.dp)
                                         .background(Color.Red, RoundedCornerShape(topStart = 4.dp))
                                         .pointerInput(Unit) {
                                             detectDragGestures { change, dragAmount ->
@@ -385,16 +393,20 @@ fun TicketDesignScreen(
                                                 val newHeightPx = (codeH * containerHeight) + dragAmount.y
                                                 codeW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
                                                 codeH = (newHeightPx / containerHeight).coerceIn(0.04f, 0.3f)
+
+                                                // Dragging/Moving the box too
+                                                codeX = (codeX + dragAmount.x / (containerWidth * 3f)).coerceIn(0f, 1f - codeW)
+                                                codeY = (codeY + dragAmount.y / (containerHeight * 3f)).coerceIn(0f, 1f - codeH)
                                             }
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("↗️", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(2.dp))
+                                    Text("↕️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
 
-                        // 3. Draggable Guest Name overlay with Resize Handle Arrow
+                        // 3. Draggable Guest Name overlay with Drag & Resize Handle
                         if (isGuestActive && showGuestName) {
                             Box(
                                 modifier = Modifier
@@ -426,11 +438,11 @@ fun TicketDesignScreen(
                                     color = Color.Green
                                 )
 
-                                // Resize Handle (Arrow) at Bottom-End
+                                // Drag & Resize Handle (Arrow) at Bottom-End allowing drag in all directions!
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .size(24.dp)
+                                        .size(28.dp)
                                         .background(Color.Green, RoundedCornerShape(topStart = 4.dp))
                                         .pointerInput(Unit) {
                                             detectDragGestures { change, dragAmount ->
@@ -439,11 +451,15 @@ fun TicketDesignScreen(
                                                 val newHeightPx = (guestH * containerHeight) + dragAmount.y
                                                 guestW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
                                                 guestH = (newHeightPx / containerHeight).coerceIn(0.04f, 0.3f)
+
+                                                // Dragging/Moving the box too
+                                                guestX = (guestX + dragAmount.x / (containerWidth * 3f)).coerceIn(0f, 1f - guestW)
+                                                guestY = (guestY + dragAmount.y / (containerHeight * 3f)).coerceIn(0f, 1f - guestH)
                                             }
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("↗️", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(2.dp))
+                                    Text("↕️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -451,19 +467,154 @@ fun TicketDesignScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Save Button
-                    Button(
-                        onClick = { showSaveDialog = true },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("حفظ تصميم التذكرة")
+                        // Preview Button
+                        Button(
+                            onClick = { showPreviewDialog = true },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Text("معاينة التذكرة 👁️")
+                        }
+
+                        // Save Button
+                        Button(
+                            onClick = { showSaveDialog = true },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("حفظ التصميم 💾")
+                        }
                     }
                 }
             }
         }
 
-        // Save Design dialog
+        // 1. Preview Design dialog
+        if (showPreviewDialog && pdfBitmap != null) {
+            Dialog(
+                onDismissRequest = { showPreviewDialog = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "معاينة شكل التذكرة النهائي المطبوع:",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        // Preview Box with exactly chosen positions
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .aspectRatio(pdfBitmap!!.width.toFloat() / pdfBitmap!!.height.toFloat())
+                                .border(1.dp, Color.Gray)
+                                .clip(RoundedCornerShape(8.dp))
+                        ) {
+                            Image(
+                                bitmap = pdfBitmap!!.asImageBitmap(),
+                                contentDescription = "Ticket Template",
+                                modifier = Modifier.fillMaxSize()
+                            )
+
+                            if (isQrActive) {
+                                Box(
+                                    modifier = Modifier
+                                        .offset {
+                                            IntOffset(
+                                                (qrX * containerWidth).roundToInt(),
+                                                (qrY * containerHeight).roundToInt()
+                                            )
+                                        }
+                                        .size(
+                                            width = (qrW * containerWidth / 2.62f).dp,
+                                            height = (qrH * containerHeight / 2.62f).dp
+                                        )
+                                        .border(1.dp, Color.Black)
+                                        .background(Color.White),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Visual QR Placeholder
+                                    Text("[QR CODE]", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            if (isCodeActive) {
+                                Box(
+                                    modifier = Modifier
+                                        .offset {
+                                            IntOffset(
+                                                (codeX * containerWidth).roundToInt(),
+                                                (codeY * containerHeight).roundToInt()
+                                            )
+                                        }
+                                        .size(
+                                            width = (codeW * containerWidth / 2.62f).dp,
+                                            height = (codeH * containerHeight / 2.62f).dp
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "SD2RA - 1",
+                                        fontSize = (12 * codeSize).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                }
+                            }
+
+                            if (isGuestActive && showGuestName) {
+                                Box(
+                                    modifier = Modifier
+                                        .offset {
+                                            IntOffset(
+                                                (guestX * containerWidth).roundToInt(),
+                                                (guestY * containerHeight).roundToInt()
+                                            )
+                                        }
+                                        .size(
+                                            width = (guestW * containerWidth / 2.62f).dp,
+                                            height = (guestH * containerHeight / 2.62f).dp
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "اسم الضيف الكريم",
+                                        fontSize = (12 * guestSize).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                }
+                            }
+                        }
+
+                        Button(
+                            onClick = { showPreviewDialog = false },
+                            modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
+                        ) {
+                            Text("رجوع للتعديل")
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Save Design dialog
         if (showSaveDialog) {
             AlertDialog(
                 onDismissRequest = { showSaveDialog = false },
