@@ -352,7 +352,6 @@ class MainViewModel @Inject constructor(
                 overContent.addImage(qrImage)
                 
                 // Draw Event Code & Ticket Number at exactly designed center of the text box
-                // Wait, design has: eventCodeX, eventCodeY, eventCodeSize (and let's assume standard width 0.3f and height 0.08f matching the design box)
                 val textW = 0.3f
                 val textH = 0.08f
                 val ecX = (design.eventCodeX + textW / 2f) * pdfWidth
@@ -453,6 +452,39 @@ class MainViewModel @Inject constructor(
                 document.close()
             } catch (ex: Exception) {
                 ex.printStackTrace()
+            }
+        }
+    }
+
+    fun backupDatabase() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dbFile = context.getDatabasePath("tadkeera_db")
+                if (dbFile.exists()) {
+                    val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
+                    var backupDir = File(appDir, "BACKUP")
+                    try {
+                        if (!backupDir.exists()) {
+                            val created = backupDir.mkdirs()
+                            if (!created) {
+                                backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
+                                if (!backupDir.exists()) backupDir.mkdirs()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
+                        if (!backupDir.exists()) backupDir.mkdirs()
+                    }
+                    
+                    val destFile = File(backupDir, "tadkeera_db_backup.db")
+                    dbFile.inputStream().use { input ->
+                        destFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
