@@ -1,13 +1,10 @@
 package com.tadkeera.eventtickets.ui.viewmodel
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.MultiFormatWriter
 import com.itextpdf.text.Document
 import com.itextpdf.text.Image
 import com.itextpdf.text.pdf.PdfContentByte
@@ -336,11 +333,9 @@ class MainViewModel @Inject constructor(
                 val pageNum = i + 1
                 val overContent = stamper.getOverContent(pageNum)
                 
-                // Draw QR Code
-                val qrBitmap = generateQRCodeBitmap(ticket.qrCodeData, 300, 300)
-                val stream = ByteArrayOutputStream()
-                qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                val qrImage = Image.getInstance(stream.toByteArray())
+                // Draw QR Code using native iText BarcodeQRCode (Extremely fast, secure and zero-memory allocation!)
+                val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, null)
+                val qrImage = barcode.getImage()
                 
                 val pageSize = reader2.getPageSize(pageNum)
                 val pdfWidth = pageSize.width
@@ -429,11 +424,10 @@ class MainViewModel @Inject constructor(
                     document.add(pName)
                 }
                 
-                // Add QR Code
-                val qrBitmap = generateQRCodeBitmap(ticket.qrCodeData, 200, 200)
-                val stream = ByteArrayOutputStream()
-                qrBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                val qrImage = Image.getInstance(stream.toByteArray())
+                // Add QR Code using native iText BarcodeQRCode
+                val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, null)
+                val qrImage = barcode.getImage()
+                qrImage.scaleAbsolute(150f, 150f)
                 qrImage.alignment = com.itextpdf.text.Element.ALIGN_CENTER
                 document.add(qrImage)
             }
@@ -452,22 +446,6 @@ class MainViewModel @Inject constructor(
                 ex.printStackTrace()
             }
         }
-    }
-
-    private fun generateQRCodeBitmap(text: String, width: Int, height: Int): Bitmap {
-        val bitMatrix = MultiFormatWriter().encode(
-            text,
-            BarcodeFormat.QR_CODE,
-            width,
-            height
-        )
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        for (x in 0 until width) {
-            for (y in 0 until height) {
-                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-            }
-        }
-        return bitmap
     }
 
     fun backupDatabase() {
