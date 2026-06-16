@@ -150,8 +150,22 @@ fun TicketIssuanceScreen(
 
             // Action Button
             if (isGenerating) {
-                CircularProgressIndicator()
-                Text("جاري توليد التذاكر الفريدة وإنشاء ملف PDF...", style = MaterialTheme.typography.bodyMedium)
+                var dotCount by remember { mutableStateOf(1) }
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        kotlinx.coroutines.delay(500)
+                        dotCount = (dotCount % 3) + 1
+                    }
+                }
+                val dots = ".".repeat(dotCount)
+                Text(
+                    text = "جاري توليد التذاكر الفريدة وإنشاء ملف PDF$dots ⏳",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(16.dp),
+                    textAlign = TextAlign.Center
+                )
             } else {
                 Button(
                     onClick = {
