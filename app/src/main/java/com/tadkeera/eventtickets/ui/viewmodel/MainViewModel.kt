@@ -462,4 +462,37 @@ class MainViewModel @Inject constructor(
             }
         }
     }
+
+    fun backupDatabase() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dbFile = context.getDatabasePath("tadkeera_db")
+                if (dbFile.exists()) {
+                    val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
+                    var backupDir = File(appDir, "BACKUP")
+                    try {
+                        if (!backupDir.exists()) {
+                            val created = backupDir.mkdirs()
+                            if (!created) {
+                                backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
+                                if (!backupDir.exists()) backupDir.mkdirs()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
+                        if (!backupDir.exists()) backupDir.mkdirs()
+                    }
+                    
+                    val destFile = File(backupDir, "tadkeera_db_backup.db")
+                    dbFile.inputStream().use { input ->
+                        destFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }
