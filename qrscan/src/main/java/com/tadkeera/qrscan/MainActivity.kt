@@ -441,7 +441,7 @@ fun CompanionScannerApp() {
                         Button(
                             onClick = {
                                 triggerTelegramReport(context, event!!, tickets, "مزامنة وتقرير يدوي فوري 🔄")
-                                Toast.makeText(context, "تم ترحيل كامل التقرير وإرساله إلى قناة تليجرام!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "تم ترحيل كامل التقرير والملف المحدث إلى تليجرام!", Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -612,7 +612,7 @@ fun CompanionScannerApp() {
     }
 }
 
-// Function to compile audit statistics and push to Telegram dynamically
+// Function to compile audit statistics and push to Telegram dynamically (Sends Text Summary AND the DB JSON file!)
 fun triggerTelegramReport(
     context: Context,
     event: Event,
@@ -645,14 +645,54 @@ ${targetTicket?.let { "• التذكرة الأخيرة: ${it.qrCodeData}\n• 
 
     GlobalScope.launch(Dispatchers.IO) {
         try {
+            // 1. Send Text Message Report
             val encodedText = URLEncoder.encode(reportText, "UTF-8")
             val urlString = "https://api.telegram.org/bot$token/sendMessage?chat_id=$channelId&text=$encodedText&parse_mode=Markdown"
-            val url = URL(urlString)
-            val connection = url.openConnection() as HttpURLConnection
+            var url = URL(urlString)
+            var connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.connect()
             connection.responseCode
             connection.disconnect()
+
+            // 2. Save tickets as JSON file and upload via sendDocument API
+            val tempFile = File(context.cacheDir, "Tadkeera_Report_${event.eventCode}.json")
+            val gson = Gson()
+            val jsonString = gson.toJson(tickets)
+            tempFile.writeText(jsonString)
+
+            val boundary = "Boundary-" + UUID.randomUUID().toString()
+            val docUrl = URL("https://api.telegram.org/bot$token/sendDocument")
+            val docConn = docUrl.openConnection() as HttpURLConnection
+            docConn.doOutput = true
+            docConn.requestMethod = "POST"
+            docConn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+
+            docConn.outputStream.use { out ->
+                // Write chat_id
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
+                out.write(("$channelId\r\n").toByteArray())
+
+                // Write caption
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
+                out.write(("تقرير تذاكر مناسبة: ${event.eventName}\r\n").toByteArray())
+
+                // Write document file
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"${tempFile.name}\"\r\n").toByteArray())
+                out.write(("Content-Type: application/json\r\n\r\n").toByteArray())
+                out.write(tempFile.readBytes())
+                out.write(("\r\n").toByteArray())
+
+                // End boundary
+                out.write(("--$boundary--\r\n").toByteArray())
+            }
+            docConn.responseCode
+            docConn.disconnect()
+            tempFile.delete()
+
         } catch (e: Exception) {
             e.printStackTrace()
         }

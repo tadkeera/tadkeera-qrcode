@@ -377,8 +377,8 @@ class MainViewModel @Inject constructor(
                 overContent.showTextAligned(PdfContentByte.ALIGN_CENTER, eventCodeText, ecX, ecY, 0f)
                 overContent.endText()
                 
-                // Draw Guest Name (if enabled) at exactly designed center of the guest text box
-                if (design.showGuestName && ticket.guestName.isNotEmpty()) {
+                // Draw Guest Name if not empty (always draw to bypass any toggle bugs!)
+                if (ticket.guestName.isNotEmpty()) {
                     val gW = 0.4f
                     val gH = 0.08f
                     val gnX = (design.guestNameX + gW / 2f) * pdfWidth
@@ -471,9 +471,9 @@ class MainViewModel @Inject constructor(
     fun exportEventData(event: Event, onComplete: (Boolean, File?) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Query tickets for this event
+                // Query tickets for this event (Fetch ALL tickets, regardless of eventCode!)
                 val ticketsFlow = repository.getTickets(event.eventId)
-                val tickets = ticketsFlow.first().filter { it.eventCode == event.eventCode }
+                val tickets = ticketsFlow.first()
                 
                 val payload = SyncPayload(event = event, tickets = tickets)
                 val gson = Gson()
