@@ -91,6 +91,7 @@ fun TadkeeraApp() {
         composable("event_list") {
             EventListScreen(
                 viewModel = viewModel,
+                navController = navController,
                 onCreateEvent = {},
                 onEventClick = { eventId ->
                     navController.navigate("event_detail/$eventId")
@@ -148,6 +149,12 @@ fun TadkeeraApp() {
             val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
             OrdersListScreen(
                 eventId = eventId,
+                navController = navController,
+                viewModel = viewModel
+            )
+        }
+        composable("data_sync") {
+            DataSyncScreen(
                 navController = navController,
                 viewModel = viewModel
             )

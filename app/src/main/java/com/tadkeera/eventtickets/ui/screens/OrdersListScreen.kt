@@ -163,10 +163,7 @@ fun OrdersListScreen(
                                 // Status icons based on scan results
                                 when {
                                     ticket.scanCount > 1 -> {
-                                        Column(horizontalAlignment = Alignment.End) {
-                                            Text("🟫 مكرر", color = Color(0xFF5D4037), fontWeight = FontWeight.Bold)
-                                            Text("مسح: ${ticket.scanCount} مرات", style = MaterialTheme.typography.bodySmall, color = Color(0xFF5D4037))
-                                        }
+                                        Text("مكرر ، تم المسح : ${ticket.scanCount} مرات ❌", color = Color.Red, fontWeight = FontWeight.Bold)
                                     }
                                     ticket.scanCount == 1 -> {
                                         Text("✅ مقبول", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)

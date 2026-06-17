@@ -438,7 +438,7 @@ fun BarcodeScannerScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "تم استخدامه مسبقاً، ممنوع الدخول ❌",
+                                        "مكرر ، تم المسح : ${result.ticket.scanCount} مرات ❌",
                                         color = Color.White,
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleLarge,
@@ -454,10 +454,10 @@ fun BarcodeScannerScreen(
                                         modifier = Modifier.padding(16.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Text("كود المناسبة: ${result.ticket.eventCode}", fontWeight = FontWeight.Bold)
-                                        Text("رقم التذكرة: ${result.ticket.ticketNumber}", fontWeight = FontWeight.Bold)
+                                        Text("كود المناسبة: ${result.ticket.eventCode}", fontWeight = FontWeight.Bold, color = Color.Red)
+                                        Text("رقم التذكرة: ${result.ticket.ticketNumber}", fontWeight = FontWeight.Bold, color = Color.Red)
                                         if (result.ticket.guestName.isNotEmpty()) {
-                                            Text("اسم الضيف: ${result.ticket.guestName}", fontWeight = FontWeight.Bold)
+                                            Text("اسم الضيف: ${result.ticket.guestName}", fontWeight = FontWeight.Bold, color = Color.Red)
                                         }
                                         Text("آخر مسح معتمد: ${sdf.format(Date(result.lastScannedAt))}", color = Color.Red, fontWeight = FontWeight.Bold)
                                     }

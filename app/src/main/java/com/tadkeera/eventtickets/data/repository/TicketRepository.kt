@@ -30,6 +30,7 @@ class TicketRepository @Inject constructor(
     suspend fun getDefaultDesign(eventId: String) = designDao.getDefaultDesign(eventId)
     
     fun getGuestNames(eventId: String) = guestDao.getGuestNames(eventId)
+    suspend fun getGuestNamesList(eventId: String) = guestDao.getGuestNamesList(eventId)
     suspend fun addGuestNames(names: List<GuestName>) = guestDao.insertGuestNames(names)
     
     suspend fun getStats(eventId: String): Pair<Int, Int> {

@@ -63,6 +63,9 @@ interface GuestNameDao {
     @Query("SELECT * FROM guest_names WHERE eventId = :eventId")
     fun getGuestNames(eventId: String): Flow<List<GuestName>>
 
-    @Insert
+    @Query("SELECT * FROM guest_names WHERE eventId = :eventId")
+    suspend fun getGuestNamesList(eventId: String): List<GuestName>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGuestNames(names: List<GuestName>)
 }

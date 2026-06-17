@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.tadkeera.eventtickets.R
 import com.tadkeera.eventtickets.data.entities.Event
 import com.tadkeera.eventtickets.ui.viewmodel.MainViewModel
@@ -25,7 +26,8 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventListScreen(
-    viewModel: MainViewModel = hiltViewModel(),
+    viewModel: MainViewModel,
+    navController: NavController,
     onCreateEvent: () -> Unit,
     onEventClick: (String) -> Unit
 ) {
@@ -69,6 +71,11 @@ fun EventListScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("TADKEERA (تذكرة)")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { navController.navigate("data_sync") }) {
+                        Icon(Icons.Default.Share, contentDescription = "تصدير واستيراد البيانات")
                     }
                 }
             )

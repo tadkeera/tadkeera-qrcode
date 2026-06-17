@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Environment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
 import com.itextpdf.text.Document
 import com.itextpdf.text.Image
 import com.itextpdf.text.pdf.PdfContentByte
@@ -40,6 +41,11 @@ sealed class ScanResult {
     data class Duplicate(val ticket: Ticket, val lastScannedAt: Long) : ScanResult()
     object Invalid : ScanResult()
 }
+
+data class SyncPayload(
+    val event: Event,
+    val tickets: List<Ticket>
+)
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -152,11 +158,10 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Isolated Event Scanner - Strictly verifies that ticket belongs to the current eventId!
+    // Ticket scanner - Isolated by Event ID
     fun scanTicket(eventId: String, qrCodeData: String) {
         viewModelScope.launch {
             val ticket = repository.getTicketByQR(qrCodeData)
-            // Strict check: if ticket does not exist, or belongs to a different event, it's completely INVALID!
             if (ticket == null || ticket.eventId != eventId) {
                 _scanResult.value = ScanResult.Invalid
             } else {
@@ -242,7 +247,7 @@ class MainViewModel @Inject constructor(
                 val eventCode = EventCodeGenerator.generateEventCode()
                 
                 // Fetch guest names if enabled
-                val guestNames = repository.getGuestNames(eventId).firstOrNull()?.map { it.name } ?: emptyList()
+                val guestNames = repository.getGuestNamesList(eventId).map { it.name }
                 
                 val tickets = mutableListOf<Ticket>()
                 val charPool : List<Char> = ('A'..'Z') + ('0'..'9')
@@ -459,6 +464,83 @@ class MainViewModel @Inject constructor(
                 document.close()
             } catch (ex: Exception) {
                 ex.printStackTrace()
+            }
+        }
+    }
+
+    fun exportEventData(event: Event, onComplete: (Boolean, File?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Query tickets for this event
+                val ticketsFlow = repository.getTickets(event.eventId)
+                val tickets = ticketsFlow.first().filter { it.eventCode == event.eventCode }
+                
+                val payload = SyncPayload(event = event, tickets = tickets)
+                val gson = Gson()
+                val jsonString = gson.toJson(payload)
+                
+                // Determine output directory based on app folder structure inside the event subfolder
+                val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
+                val cleanEventName = event.eventName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                var eventDir = File(appDir, cleanEventName)
+                
+                try {
+                    if (!eventDir.exists()) {
+                        val created = eventDir.mkdirs()
+                        if (!created) {
+                            eventDir = File(context.getExternalFilesDir(null), "Tadkeera/$cleanEventName")
+                            if (!eventDir.exists()) eventDir.mkdirs()
+                        }
+                    }
+                } catch (e: Exception) {
+                    eventDir = File(context.getExternalFilesDir(null), "Tadkeera/$cleanEventName")
+                    if (!eventDir.exists()) eventDir.mkdirs()
+                }
+                
+                val outputFile = File(eventDir, "${event.eventCode}.json")
+                FileOutputStream(outputFile).use { output ->
+                    output.write(jsonString.toByteArray())
+                }
+                
+                withContext(Dispatchers.Main) {
+                    onComplete(true, outputFile)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onComplete(false, null)
+                }
+            }
+        }
+    }
+
+    fun importEventData(uri: Uri, onComplete: (Boolean, String?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Failed to open stream")
+                val jsonString = inputStream.bufferedReader().use { it.readText() }
+                
+                val gson = Gson()
+                val payload = gson.fromJson(jsonString, SyncPayload::class.java)
+                
+                if (payload != null && payload.event != null) {
+                    // Save Event and Tickets
+                    repository.addEvent(payload.event)
+                    repository.addTickets(payload.tickets)
+                    
+                    withContext(Dispatchers.Main) {
+                        onComplete(true, payload.event.eventName)
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        onComplete(false, "الملف غير صالح أو فارغ")
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onComplete(false, e.message)
+                }
             }
         }
     }
