@@ -15,9 +15,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,6 +28,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -219,7 +220,7 @@ fun TicketDesignScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "اسحب المربعات لتحديد موضعها. لمربع الباركود، استخدم حركة الإصبعين المتعاكسة (Pinch) لتكبيره وتصغيره، وزر التدوير لتعديل اتجاهه:",
+                        text = "اسحب المربعات لتحديد موضعها. لمربع الباركود، اسحب المقابض على الحواف لتغيير أبعاده بشكل حر مستقل، واسحب مقبض الدوران الدائري بالأسفل لتدويره:",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -292,7 +293,7 @@ fun TicketDesignScreen(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // 1. Draggable QR Code overlay with Pinch-To-Zoom gesture (Resizing in all directions!)
+                        // 1. Draggable QR Code overlay with Free-form Resizing and Drag Rotation Gesture
                         if (isQrActive) {
                             Box(
                                 modifier = Modifier
@@ -306,18 +307,14 @@ fun TicketDesignScreen(
                                         width = (qrW * containerWidth / 2.62f).dp,
                                         height = (qrH * containerHeight / 2.62f).dp
                                     )
+                                    .rotate(qrCodeRotation)
                                     .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
                                     .background(Color.White.copy(alpha = 0.8f))
                                     .pointerInput(Unit) {
-                                        detectTransformGestures { _, pan, zoom, _ ->
-                                            // Free movement with single finger drag
-                                            qrX = (qrX + pan.x / containerWidth).coerceIn(0f, 1f - qrW)
-                                            qrY = (qrY + pan.y / containerHeight).coerceIn(0f, 1f - qrH)
-                                            
-                                            // Smooth proportional scaling with two fingers pinch zoom!
-                                            val newWidthPx = (qrW * containerWidth) * zoom
-                                            qrW = (newWidthPx / containerWidth).coerceIn(0.1f, 0.8f)
-                                            qrH = qrW // Keep square ratio
+                                        detectDragGestures { change, dragAmount ->
+                                            change.consume()
+                                            qrX = (qrX + dragAmount.x / containerWidth).coerceIn(0f, 1f - qrW)
+                                            qrY = (qrY + dragAmount.y / containerHeight).coerceIn(0f, 1f - qrH)
                                         }
                                     },
                                 contentAlignment = Alignment.Center
@@ -330,15 +327,100 @@ fun TicketDesignScreen(
                                     color = MaterialTheme.colorScheme.primary
                                 )
 
-                                // Dedicated Rotation Button (🔄) in the corner of the Barcode Box!
+                                // 4 Draggable Resizing Edge Handles (Free-form / Non-Uniform scaling!)
+                                // Left Edge
                                 Box(
                                     modifier = Modifier
-                                        .align(Alignment.TopEnd)
+                                        .align(Alignment.CenterStart)
+                                        .width(6.dp)
+                                        .fillMaxHeight(0.6f)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val deltaX = dragAmount.x / containerWidth
+                                                qrX = (qrX + deltaX).coerceIn(0f, qrX + qrW - 0.05f)
+                                                qrW = (qrW - deltaX).coerceIn(0.05f, 1f - qrX)
+                                            }
+                                        }
+                                )
+
+                                // Right Edge
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .width(6.dp)
+                                        .fillMaxHeight(0.6f)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                qrW = (qrW + dragAmount.x / containerWidth).coerceIn(0.05f, 1f - qrX)
+                                            }
+                                        }
+                                )
+
+                                // Top Edge
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .height(6.dp)
+                                        .fillMaxWidth(0.6f)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val deltaY = dragAmount.y / containerHeight
+                                                qrY = (qrY + deltaY).coerceIn(0f, qrY + qrH - 0.05f)
+                                                qrH = (qrH - deltaY).coerceIn(0.05f, 1f - qrY)
+                                            }
+                                        }
+                                )
+
+                                // Bottom Edge
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .height(6.dp)
+                                        .fillMaxWidth(0.6f)
+                                        .background(MaterialTheme.colorScheme.primary)
+                                        .pointerInput(Unit) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                qrH = (qrH + dragAmount.y / containerHeight).coerceIn(0.05f, 1f - qrY)
+                                            }
+                                        }
+                                )
+
+                                // Professional Canva-Style Rotation Handle at the Bottom Center of the box
+                                var previousAngle by remember { mutableStateOf(0f) }
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .offset(y = 26.dp)
                                         .size(24.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(bottomStart = 4.dp))
-                                        .clickable {
-                                            qrCodeRotation = (qrCodeRotation + 90f) % 360f
-                                            Toast.makeText(context, "زاوية تدوير الباركود: ${qrCodeRotation.roundToInt()} درجة", Toast.LENGTH_SHORT).show()
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                        .pointerInput(Unit) {
+                                            detectDragGestures(
+                                                onDragStart = { offset ->
+                                                    val centerX = (qrW * containerWidth) / 2f
+                                                    val centerY = (qrH * containerHeight) / 2f
+                                                    val dx = offset.x - centerX
+                                                    val dy = offset.y - centerY
+                                                    previousAngle = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                                },
+                                                onDrag = { change, _ ->
+                                                    change.consume()
+                                                    val centerX = (qrW * containerWidth) / 2f
+                                                    val centerY = (qrH * containerHeight) / 2f
+                                                    val currentX = change.position.x - centerX
+                                                    val currentY = change.position.y - centerY
+                                                    val currentAngle = Math.toDegrees(Math.atan2(currentY.toDouble(), currentX.toDouble())).toFloat()
+                                                    val angleDelta = currentAngle - previousAngle
+                                                    qrCodeRotation = (qrCodeRotation + angleDelta + 360f) % 360f
+                                                    previousAngle = currentAngle
+                                                }
+                                            )
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -456,7 +538,7 @@ fun TicketDesignScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(32.dp)) // Add space for rotation handle offset
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -484,7 +566,7 @@ fun TicketDesignScreen(
             }
         }
 
-        // 1. Preview Design dialog (Perfect Centered rendering layout)
+        // 1. Preview Design dialog
         if (showPreviewDialog && pdfBitmap != null) {
             Dialog(
                 onDismissRequest = { showPreviewDialog = false },
@@ -536,6 +618,7 @@ fun TicketDesignScreen(
                                             width = (qrW * containerWidth / 2.62f).dp,
                                             height = (qrH * containerHeight / 2.62f).dp
                                         )
+                                        .rotate(qrCodeRotation)
                                         .border(1.dp, Color.Black)
                                         .background(Color.White),
                                     contentAlignment = Alignment.Center
