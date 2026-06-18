@@ -2,20 +2,30 @@ package com.tadkeera.eventtickets.ui.screens
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.tadkeera.eventtickets.R
 import com.tadkeera.eventtickets.data.entities.Event
@@ -36,6 +46,10 @@ fun EventListScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var eventName by remember { mutableStateOf("") }
     var eventDate by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    // Delete Event States
+    var eventToDelete by remember { mutableStateOf<Event?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
@@ -62,46 +76,148 @@ fun EventListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                title = { 
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_tadkeera_logo),
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(38.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("TADKEERA (تذكرة)")
+                        Text(
+                            "تذكرة (Tadkeera)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { navController.navigate("data_sync") }) {
-                        Icon(Icons.Default.Share, contentDescription = "تصدير واستيراد البيانات")
+                    IconButton(onClick = { navController.navigate("backup_settings") }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "الإعدادات والنسخ الاحتياطي",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
-                }
+                    IconButton(onClick = { navController.navigate("data_sync") }) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "تصدير واستيراد البيانات",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "إنشاء مناسبة جديدة")
             }
         }
     ) { padding ->
-        if (events.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("لا توجد مناسبات حالياً")
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.background
+                        )
+                    )
+                )
+        ) {
+            // Elegant Welcome Banner
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
             ) {
-                items(events) { event ->
-                    EventCard(event, onEventClick)
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "أهلاً بك في نظام تذكرة 🌟",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "قم بإنشاء وتصميم وإدارة تذاكر مناسباتك بطريقة عصرية مذهلة وآمنة بالكامل أوفلاين.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+
+            Text(
+                "المناسبات الحالية النشطة:",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            if (events.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "لا توجد مناسبات حالياً 📂",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Gray
+                        )
+                        Text(
+                            "انقر على الزر (+) بالأسفل لإضافة مناسبتك الأولى وبدء التصميم!",
+                            fontSize = 12.sp,
+                            color = Color.LightGray,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp)
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 80.dp, start = 16.dp, end = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(events) { event ->
+                        EventCard(
+                            event = event,
+                            onClick = onEventClick,
+                            onDelete = {
+                                eventToDelete = event
+                                showDeleteDialog = true
+                            }
+                        )
+                    }
                 }
             }
         }
 
+        // Add Event Dialog
         if (showAddDialog) {
             AlertDialog(
                 onDismissRequest = { 
@@ -112,7 +228,8 @@ fun EventListScreen(
                 title = {
                     Text(
                         text = "إنشاء مناسبة جديدة",
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     )
                 },
                 text = {
@@ -180,19 +297,95 @@ fun EventListScreen(
                 }
             )
         }
+
+        // Delete Confirmation Dialog
+        if (showDeleteDialog && eventToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = {
+                    Text(
+                        "تأكيد حذف المناسبة؟ ⚠️",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                },
+                text = {
+                    Text("هل أنت متأكد من رغبتك في حذف مناسبة [${eventToDelete!!.eventName}] وكل التذاكر الصادرة، وملفات الـ PDF، والتصاميم المعتمدة التابعة لها كلياً؟ هذا الإجراء نهائي ولا يمكن التراجع عنه.")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.deleteEvent(eventToDelete!!)
+                            showDeleteDialog = false
+                            eventToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("نعم، احذف كلياً")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false; eventToDelete = null }) {
+                        Text("إلغاء")
+                    }
+                }
+            )
+        }
     }
 }
 
 @Composable
-fun EventCard(event: Event, onClick: (String) -> Unit) {
+fun EventCard(
+    event: Event,
+    onClick: (String) -> Unit,
+    onDelete: () -> Unit
+) {
     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale("ar"))
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick(event.eventId) },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick(event.eventId) },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = event.eventName, style = MaterialTheme.typography.titleLarge)
-            Text(text = sdf.format(Date(event.eventDate)), style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = event.eventName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "تاريخ البدء: ${sdf.format(Date(event.eventDate))}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Elegant Delete Button
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), CircleShape)
+                    .size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "حذف المناسبة كلياً",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

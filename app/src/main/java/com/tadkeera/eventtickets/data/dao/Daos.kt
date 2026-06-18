@@ -20,6 +20,9 @@ interface EventDao {
 
     @Update
     suspend fun updateEvent(event: Event)
+
+    @Delete
+    suspend fun deleteEvent(event: Event)
 }
 
 @Dao
@@ -44,6 +47,9 @@ interface TicketDao {
 
     @Query("DELETE FROM tickets WHERE eventCode = :eventCode")
     suspend fun deleteTicketsByCode(eventCode: String)
+
+    @Query("DELETE FROM tickets WHERE eventId = :eventId")
+    suspend fun deleteTicketsByEventId(eventId: String)
 }
 
 @Dao
@@ -56,6 +62,9 @@ interface TicketDesignDao {
 
     @Query("SELECT * FROM ticket_designs WHERE eventId = :eventId AND isDefault = 1 LIMIT 1")
     suspend fun getDefaultDesign(eventId: String): TicketDesign?
+
+    @Query("DELETE FROM ticket_designs WHERE eventId = :eventId")
+    suspend fun deleteDesignsByEventId(eventId: String)
 }
 
 @Dao
@@ -68,4 +77,7 @@ interface GuestNameDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGuestNames(names: List<GuestName>)
+
+    @Query("DELETE FROM guest_names WHERE eventId = :eventId")
+    suspend fun deleteGuestNamesByEventId(eventId: String)
 }

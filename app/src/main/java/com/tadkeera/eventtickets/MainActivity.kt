@@ -159,5 +159,11 @@ fun TadkeeraApp() {
                 viewModel = viewModel
             )
         }
+        composable("backup_settings") {
+            BackupSettingsScreen(
+                navController = navController,
+                viewModel = viewModel
+            )
+        }
     }
 }

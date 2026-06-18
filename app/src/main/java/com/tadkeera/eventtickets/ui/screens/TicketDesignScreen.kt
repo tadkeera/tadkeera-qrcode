@@ -84,7 +84,7 @@ val ARABIC_FONTS = listOf(
     FontOption("26. خط بوينت العربي (AXT Point)", "cairo.ttf"),
     FontOption("27. خط جيرة (Geira)", "cairo.ttf"),
     FontOption("28. خط كاف (Kaf)", "reemkufi.ttf"),
-    FontOption("29. خط نيو جيهان (GE New Standard)", "tajawal.ttf"),
+    FontOption("29. line_ge_new_standard", "tajawal.ttf"),
     FontOption("30. خط ثلث رقمي (Digital Thuluth)", "arial.ttf"),
     FontOption("31. خط ديواني رقمي (Digital Diwani)", "arial.ttf"),
     FontOption("32. خط الرقعة الرقمي (Aref Ruqaa)", "arefruqaa.ttf"),
@@ -157,6 +157,7 @@ fun TicketDesignScreen(
     var codeH by remember { mutableStateOf(0.08f) }
     var codeSize by remember { mutableStateOf(1.0f) }
     var codeColorHex by remember { mutableStateOf("#C62828") } // Default Classic Red
+    var codeWeight by remember { mutableStateOf("bold") } // normal, bold, extrabold
     var isCodeActive by remember { mutableStateOf(false) }
 
     // Guest Name Settings
@@ -166,7 +167,8 @@ fun TicketDesignScreen(
     var guestH by remember { mutableStateOf(0.08f) }
     var guestSize by remember { mutableStateOf(1.0f) }
     var guestColorHex by remember { mutableStateOf("#2E7D32") } // Default Emerald Green
-    var guestFontOption by remember { mutableStateOf(ARABIC_FONTS[47]) } // Default Amiri (48th index is Amiri)
+    var guestFontOption by remember { mutableStateOf(ARABIC_FONTS[47]) } // Default Amiri
+    var guestWeight by remember { mutableStateOf("bold") } // normal, bold, extrabold
     var isGuestActive by remember { mutableStateOf(false) }
 
     var fontDropdownExpanded by remember { mutableStateOf(false) }
@@ -306,7 +308,7 @@ fun TicketDesignScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "انقر على المربع لتحديده وتعديل خصائصه المتقدمة (الخط واللون). اسحب المربعات لتحديد موضعها وحرك الحواف لتغيير حجمها:",
+                        text = "انقر على المربع لتحديده وتعديل خصائصه المتقدمة (الخط، الوزن، اللون). اسحب المربعات لتحديد موضعها وحرك الحواف لتغيير حجمها وحرك مقبض الدوران الدائري بالأسفل لتدوير الباركود:",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -375,6 +377,29 @@ fun TicketDesignScreen(
                                                 valueRange = 0.5f..3.0f
                                             )
                                         }
+
+                                        // Font Weight Bold and Extra Bold Selector!
+                                        Column {
+                                            Text("سماكة ووزن خط كود المناسبة:", fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                FilterChip(
+                                                    selected = codeWeight == "normal",
+                                                    onClick = { codeWeight = "normal" },
+                                                    label = { Text("عادي (Normal)") }
+                                                )
+                                                FilterChip(
+                                                    selected = codeWeight == "bold",
+                                                    onClick = { codeWeight = "bold" },
+                                                    label = { Text("عريض (Bold)") }
+                                                )
+                                                FilterChip(
+                                                    selected = codeWeight == "extrabold",
+                                                    onClick = { codeWeight = "extrabold" },
+                                                    label = { Text("عريض جداً (Extra Bold)") }
+                                                )
+                                            }
+                                        }
                                         
                                         // Color Selector
                                         Column {
@@ -424,7 +449,30 @@ fun TicketDesignScreen(
                                             )
                                         }
 
-                                        // Font Family Dropdown Selector (Supporting the 50 gorgeous Arabic fonts!)
+                                        // Font Weight Bold and Extra Bold Selector!
+                                        Column {
+                                            Text("سماكة ووزن خط اسم الضيف:", fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                FilterChip(
+                                                    selected = guestWeight == "normal",
+                                                    onClick = { guestWeight = "normal" },
+                                                    label = { Text("عادي (Normal)") }
+                                                )
+                                                FilterChip(
+                                                    selected = guestWeight == "bold",
+                                                    onClick = { guestWeight = "bold" },
+                                                    label = { Text("عريض (Bold)") }
+                                                )
+                                                FilterChip(
+                                                    selected = guestWeight == "extrabold",
+                                                    onClick = { guestWeight = "extrabold" },
+                                                    label = { Text("عريض جداً (Extra Bold)") }
+                                                )
+                                            }
+                                        }
+
+                                        // Font Family Dropdown Selector
                                         Column {
                                             Text("نوع الخط العربي لاسم الضيف:", fontWeight = FontWeight.Bold)
                                             Spacer(modifier = Modifier.height(6.dp))
@@ -546,9 +594,7 @@ fun TicketDesignScreen(
                                         shape = RoundedCornerShape(4.dp)
                                     )
                                     .clickable {
-                                        isQrActive = true
-                                        isCodeActive = false
-                                        isGuestActive = false
+                                        activeElement = SelectedElement.QR_CODE
                                     }
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
@@ -559,7 +605,6 @@ fun TicketDesignScreen(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                // Draw simple grid lines inside the transparent QR placeholder to guide the user
                                 Box(modifier = Modifier.fillMaxSize().border(1.dp, Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)))
                                 Text(
                                     "[QR CODE]\nالباركود الذكي",
@@ -569,8 +614,7 @@ fun TicketDesignScreen(
                                     color = Color.Black
                                 )
 
-                                // 4 Draggable Resizing Edge Handles (Free-form / Non-Uniform scaling!)
-                                // Left Edge
+                                // Left Edge Resize
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.CenterStart)
@@ -587,7 +631,7 @@ fun TicketDesignScreen(
                                         }
                                 )
 
-                                // Right Edge
+                                // Right Edge Resize
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.CenterEnd)
@@ -602,7 +646,7 @@ fun TicketDesignScreen(
                                         }
                                 )
 
-                                // Top Edge
+                                // Top Edge Resize
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopCenter)
@@ -619,7 +663,7 @@ fun TicketDesignScreen(
                                         }
                                 )
 
-                                // Bottom Edge
+                                // Bottom Edge Resize
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
@@ -634,7 +678,7 @@ fun TicketDesignScreen(
                                         }
                                 )
 
-                                // Professional Canva-Style Rotation Handle at the Bottom Center of the box
+                                // Rotation Handle
                                 var previousAngle by remember { mutableStateOf(0f) }
                                 Box(
                                     modifier = Modifier
@@ -671,7 +715,7 @@ fun TicketDesignScreen(
                             }
                         }
 
-                        // 2. Draggable Event Code overlay (Displaying custom color!)
+                        // 2. Draggable Event Code overlay
                         if (isCodeActive) {
                             Box(
                                 modifier = Modifier
@@ -704,10 +748,15 @@ fun TicketDesignScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 val parsedColor = try { Color(android.graphics.Color.parseColor(codeColorHex)) } catch (e: Exception) { Color.Red }
+                                val styleWeight = when (codeWeight) {
+                                    "extrabold" -> FontWeight.Black
+                                    "bold" -> FontWeight.Bold
+                                    else -> FontWeight.Normal
+                                }
                                 Text(
                                     "HZ9ZS - 2",
                                     fontSize = (12 * codeSize).sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = styleWeight,
                                     color = parsedColor
                                 )
 
@@ -733,7 +782,7 @@ fun TicketDesignScreen(
                             }
                         }
 
-                        // 3. Draggable Guest Name overlay (Displaying custom color!)
+                        // 3. Draggable Guest Name overlay
                         if (isGuestActive && showGuestName) {
                             Box(
                                 modifier = Modifier
@@ -766,10 +815,15 @@ fun TicketDesignScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 val parsedColor = try { Color(android.graphics.Color.parseColor(guestColorHex)) } catch (e: Exception) { Color.Green }
+                                val styleWeight = when (guestWeight) {
+                                    "extrabold" -> FontWeight.Black
+                                    "bold" -> FontWeight.Bold
+                                    else -> FontWeight.Normal
+                                }
                                 Text(
                                     "ياسر ربيع طيب",
                                     fontSize = (12 * guestSize).sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = styleWeight,
                                     color = parsedColor
                                 )
 
@@ -796,13 +850,12 @@ fun TicketDesignScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp)) // Add space for rotation handle offset
+                    Spacer(modifier = Modifier.height(32.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Preview Button
                         Button(
                             onClick = { showPreviewDialog = true },
                             modifier = Modifier.weight(1f),
@@ -811,7 +864,6 @@ fun TicketDesignScreen(
                             Text("معاينة التذكرة 👁️")
                         }
 
-                        // Save Button
                         Button(
                             onClick = { showSaveDialog = true },
                             modifier = Modifier.weight(1f),
@@ -842,14 +894,13 @@ fun TicketDesignScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            "معاينة شكل التذكرة النهائي المطبوع (بدون خلفية QR بيضاء ومصححة عربياً):",
+                            "معاينة شكل التذكرة النهائي المطبوع:",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = 8.dp),
                             textAlign = TextAlign.Center
                         )
 
-                        // Preview Box with exactly chosen positions
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -881,7 +932,6 @@ fun TicketDesignScreen(
                                         .border(1.dp, Color.Black.copy(alpha = 0.5f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    // Visual QR Placeholder - transparent background
                                     Text("[QR CODE]", fontSize = 8.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -902,10 +952,15 @@ fun TicketDesignScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     val parsedColor = try { Color(android.graphics.Color.parseColor(codeColorHex)) } catch (e: Exception) { Color.Black }
+                                    val styleWeight = when (codeWeight) {
+                                        "extrabold" -> FontWeight.Black
+                                        "bold" -> FontWeight.Bold
+                                        else -> FontWeight.Normal
+                                    }
                                     Text(
                                         "HZ9ZS - 2",
                                         fontSize = (12 * codeSize).sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = styleWeight,
                                         color = parsedColor
                                     )
                                 }
@@ -927,10 +982,15 @@ fun TicketDesignScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     val parsedColor = try { Color(android.graphics.Color.parseColor(guestColorHex)) } catch (e: Exception) { Color.Black }
+                                    val styleWeight = when (guestWeight) {
+                                        "extrabold" -> FontWeight.Black
+                                        "bold" -> FontWeight.Bold
+                                        else -> FontWeight.Normal
+                                    }
                                     Text(
                                         "ياسر ربيع طيب",
                                         fontSize = (12 * guestSize).sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = styleWeight,
                                         color = parsedColor
                                     )
                                 }
@@ -986,7 +1046,13 @@ fun TicketDesignScreen(
                                     isDefault = true,
                                     eventCodeColor = codeColorHex,
                                     guestNameColor = guestColorHex,
-                                    guestNameFont = guestFontOption.fileName
+                                    guestNameFont = guestFontOption.fileName,
+                                    eventCodeWidth = codeW,
+                                    eventCodeHeight = codeH,
+                                    guestNameWidth = guestW,
+                                    guestNameHeight = guestH,
+                                    eventCodeWeight = codeWeight,
+                                    guestNameWeight = guestWeight
                                 )
                                 showSaveDialog = false
                                 designName = ""

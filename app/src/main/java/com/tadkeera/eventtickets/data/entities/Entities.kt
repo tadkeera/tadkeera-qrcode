@@ -37,7 +37,7 @@ data class TicketDesign(
     val qrCodeY: Float,
     val qrCodeWidth: Float,
     val qrCodeHeight: Float,
-    val qrCodeRotation: Float = 0f, // Added rotation in degrees (0, 90, 180, 270)
+    val qrCodeRotation: Float = 0f,
     val eventCodeX: Float,
     val eventCodeY: Float,
     val eventCodeSize: Float,
@@ -46,9 +46,16 @@ data class TicketDesign(
     val guestNameSize: Float,
     val showGuestName: Boolean,
     val isDefault: Boolean = false,
-    val eventCodeColor: String = "#C62828", // default Red
-    val guestNameColor: String = "#2E7D32", // default Green
-    val guestNameFont: String = "arial.ttf" // default Amiri
+    val eventCodeColor: String = "#C62828",
+    val guestNameColor: String = "#2E7D32",
+    val guestNameFont: String = "arial.ttf",
+    // New fields for absolute positioning and font weights!
+    val eventCodeWidth: Float = 0.3f,
+    val eventCodeHeight: Float = 0.08f,
+    val guestNameWidth: Float = 0.4f,
+    val guestNameHeight: Float = 0.08f,
+    val eventCodeWeight: String = "bold", // normal, bold, extrabold
+    val guestNameWeight: String = "bold"  // normal, bold, extrabold
 )
 
 @Entity(tableName = "guest_names")

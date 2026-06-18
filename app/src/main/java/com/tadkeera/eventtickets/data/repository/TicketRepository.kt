@@ -18,6 +18,13 @@ class TicketRepository @Inject constructor(
     suspend fun addEvent(event: Event) = eventDao.insertEvent(event)
     suspend fun getEvent(id: String) = eventDao.getEventById(id)
     suspend fun updateEvent(event: Event) = eventDao.updateEvent(event)
+    
+    suspend fun deleteEventFully(event: Event) {
+        eventDao.deleteEvent(event)
+        ticketDao.deleteTicketsByEventId(event.eventId)
+        designDao.deleteDesignsByEventId(event.eventId)
+        guestDao.deleteGuestNamesByEventId(event.eventId)
+    }
 
     fun getTickets(eventId: String) = ticketDao.getEventTickets(eventId)
     suspend fun getTicketByQR(qr: String) = ticketDao.getTicketByQR(qr)

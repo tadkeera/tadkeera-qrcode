@@ -76,6 +76,13 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun deleteEvent(event: Event) {
+        viewModelScope.launch {
+            repository.deleteEventFully(event)
+            backupDatabase()
+        }
+    }
+
     fun getEventFlow(eventId: String): Flow<Event?> = flow {
         emit(repository.getEvent(eventId))
     }
@@ -96,7 +103,13 @@ class MainViewModel @Inject constructor(
         isDefault: Boolean = true,
         eventCodeColor: String = "#C62828",
         guestNameColor: String = "#2E7D32",
-        guestNameFont: String = "arial.ttf"
+        guestNameFont: String = "arial.ttf",
+        eventCodeWidth: Float = 0.3f,
+        eventCodeHeight: Float = 0.08f,
+        guestNameWidth: Float = 0.4f,
+        guestNameHeight: Float = 0.08f,
+        eventCodeWeight: String = "bold",
+        guestNameWeight: String = "bold"
     ) {
         viewModelScope.launch {
             val design = TicketDesign(
@@ -118,7 +131,13 @@ class MainViewModel @Inject constructor(
                 isDefault = isDefault,
                 eventCodeColor = eventCodeColor,
                 guestNameColor = guestNameColor,
-                guestNameFont = guestNameFont
+                guestNameFont = guestNameFont,
+                eventCodeWidth = eventCodeWidth,
+                eventCodeHeight = eventCodeHeight,
+                guestNameWidth = guestNameWidth,
+                guestNameHeight = guestNameHeight,
+                eventCodeWeight = eventCodeWeight,
+                guestNameWeight = guestNameWeight
             )
             repository.addDesign(design)
             backupDatabase()
@@ -336,7 +355,7 @@ class MainViewModel @Inject constructor(
         return Image.getInstance(baos.toByteArray())
     }
 
-    private fun renderTextToImage(text: String, fontSize: Float, fontColorHex: String, fontFileName: String, pdfWidth: Float): Image {
+    private fun renderTextToImage(text: String, fontSize: Float, fontColorHex: String, fontFileName: String, pdfWidth: Float, fontWeight: String = "bold"): Image {
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         
         val parsedColor = try {
@@ -348,7 +367,12 @@ class MainViewModel @Inject constructor(
         
         // Load custom typeface from Assets
         val typeface = try {
-            android.graphics.Typeface.createFromAsset(context.assets, "fonts/$fontFileName")
+            val baseTypeface = android.graphics.Typeface.createFromAsset(context.assets, "fonts/$fontFileName")
+            val isBold = fontWeight == "bold" || fontWeight == "extrabold"
+            if (fontWeight == "extrabold") {
+                paint.isFakeBoldText = true
+            }
+            android.graphics.Typeface.create(baseTypeface, if (isBold) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
         } catch (e: Exception) {
             try {
                 android.graphics.Typeface.createFromAsset(context.assets, "fonts/arial.ttf")
@@ -449,14 +473,14 @@ class MainViewModel @Inject constructor(
                 
                 overContent.addImage(qrImage)
                 
-                // Draw Event Code & Ticket Number
-                val ecBoxW = 0.3f * pdfWidth
-                val ecBoxH = 0.08f * pdfHeight
+                // Draw Event Code & Ticket Number at exactly designed positions
+                val ecBoxW = design.eventCodeWidth * pdfWidth
+                val ecBoxH = design.eventCodeHeight * pdfHeight
                 val ecBoxX = design.eventCodeX * pdfWidth
-                val ecBoxY = (1.0f - design.eventCodeY - 0.08f) * pdfHeight
+                val ecBoxY = (1.0f - design.eventCodeY - design.eventCodeHeight) * pdfHeight
                 
                 val eventCodeText = "${ticket.eventCode} - ${ticket.ticketNumber}"
-                val ecImg = renderTextToImage(eventCodeText, design.eventCodeSize, design.eventCodeColor, "arial.ttf", pdfWidth)
+                val ecImg = renderTextToImage(eventCodeText, design.eventCodeSize, design.eventCodeColor, "arial.ttf", pdfWidth, design.eventCodeWeight)
                 
                 // Scale proportionally to fit inside ecBox
                 val ecImgW = ecImg.width
@@ -475,12 +499,12 @@ class MainViewModel @Inject constructor(
                 
                 // Draw Guest Name if not empty (always draw to bypass any toggle bugs!)
                 if (ticket.guestName.isNotEmpty()) {
-                    val gBoxW = 0.4f * pdfWidth
-                    val gBoxH = 0.08f * pdfHeight
+                    val gBoxW = design.guestNameWidth * pdfWidth
+                    val gBoxH = design.guestNameHeight * pdfHeight
                     val gBoxX = design.guestNameX * pdfWidth
-                    val gBoxY = (1.0f - design.guestNameY - 0.08f) * pdfHeight
+                    val gBoxY = (1.0f - design.guestNameY - design.guestNameHeight) * pdfHeight
                     
-                    val gImg = renderTextToImage(ticket.guestName, design.guestNameSize, design.guestNameColor, design.guestNameFont, pdfWidth)
+                    val gImg = renderTextToImage(ticket.guestName, design.guestNameSize, design.guestNameColor, design.guestNameFont, pdfWidth, design.guestNameWeight)
                     
                     // Scale proportionally to fit inside gBox
                     val gImgW = gImg.width
@@ -674,6 +698,74 @@ class MainViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    fun triggerManualBackup(onComplete: (Boolean, String?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dbFile = context.getDatabasePath("tadkeera_db")
+                if (dbFile.exists()) {
+                    val appDir = File(Environment.getExternalStorageDirectory(), "Tadkeera")
+                    var backupDir = File(appDir, "BACKUP")
+                    if (!backupDir.exists()) {
+                        val created = backupDir.mkdirs()
+                        if (!created) {
+                            backupDir = File(context.getExternalFilesDir(null), "Tadkeera/BACKUP")
+                            if (!backupDir.exists()) backupDir.mkdirs()
+                        }
+                    }
+                    
+                    val destFile = File(backupDir, "tadkeera_db_backup.db")
+                    dbFile.inputStream().use { input ->
+                        destFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    withContext(Dispatchers.Main) {
+                        onComplete(true, "تم إنشاء النسخة الاحتياطية بنجاح في مجلد BACKUP!")
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        onComplete(false, "قاعدة البيانات فارغة أو غير موجودة")
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onComplete(false, e.message)
+                }
+            }
+        }
+    }
+
+    fun restoreDatabaseBackup(uri: Uri, onComplete: (Boolean, String?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dbFile = context.getDatabasePath("tadkeera_db")
+                val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Failed to open stream")
+                
+                dbFile.outputStream().use { output ->
+                    inputStream.use { input ->
+                        input.copyTo(output)
+                    }
+                }
+                
+                // Delete auxiliary WAL and SHM files to force database reload
+                val walFile = File(dbFile.path + "-wal")
+                if (walFile.exists()) walFile.delete()
+                val shmFile = File(dbFile.path + "-shm")
+                if (shmFile.exists()) shmFile.delete()
+                
+                withContext(Dispatchers.Main) {
+                    onComplete(true, "تم استعادة النسخة الاحتياطية بنجاح!")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onComplete(false, e.message)
+                }
             }
         }
     }
