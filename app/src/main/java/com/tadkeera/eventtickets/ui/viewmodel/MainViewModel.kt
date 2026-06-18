@@ -341,8 +341,10 @@ class MainViewModel @Inject constructor(
                 val pageNum = i + 1
                 val overContent = stamper.getOverContent(pageNum)
                 
-                // Draw QR Code using native iText BarcodeQRCode
-                val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, null)
+                // Draw QR Code using native iText BarcodeQRCode with zero margins (Quiet Zone)
+                val hints = java.util.HashMap<com.google.zxing.EncodeHintType, Any>()
+                hints[com.google.zxing.EncodeHintType.MARGIN] = 0
+                val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, hints)
                 val qrImage = barcode.getImage()
                 
                 val pageSize = reader2.getPageSize(pageNum)
@@ -385,9 +387,11 @@ class MainViewModel @Inject constructor(
                     val gnY = (1.0f - (design.guestNameY + gH / 2f)) * pdfHeight - (design.guestNameSize * 3f)
                     
                     overContent.beginText()
-                    // Safe Arabic font fallback to avoid crashes if arial.ttf is not packaged
+                    // Safe Arabic font loader from Assets
                     val fontArabic = try {
-                        com.itextpdf.text.pdf.BaseFont.createFont("assets/fonts/arial.ttf", com.itextpdf.text.pdf.BaseFont.IDENTITY_H, com.itextpdf.text.pdf.BaseFont.EMBEDDED)
+                        val inputStream = context.assets.open("fonts/arial.ttf")
+                        val bytes = inputStream.readBytes()
+                        com.itextpdf.text.pdf.BaseFont.createFont("fonts/arial.ttf", com.itextpdf.text.pdf.BaseFont.IDENTITY_H, com.itextpdf.text.pdf.BaseFont.EMBEDDED, com.itextpdf.text.pdf.BaseFont.CACHED, bytes, null)
                     } catch (e: Exception) {
                         com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
                     }
@@ -444,8 +448,10 @@ class MainViewModel @Inject constructor(
                     document.add(pName)
                 }
                 
-                // Add QR Code using native iText BarcodeQRCode
-                val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, null)
+                // Add QR Code using native iText BarcodeQRCode with zero margins
+                val hints = java.util.HashMap<com.google.zxing.EncodeHintType, Any>()
+                hints[com.google.zxing.EncodeHintType.MARGIN] = 0
+                val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, hints)
                 val qrImage = barcode.getImage()
                 qrImage.scaleAbsolute(150f, 150f)
                 qrImage.alignment = com.itextpdf.text.Element.ALIGN_CENTER
