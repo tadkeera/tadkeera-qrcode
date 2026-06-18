@@ -93,7 +93,10 @@ class MainViewModel @Inject constructor(
         eventCodeX: Float, eventCodeY: Float, eventCodeSize: Float,
         guestNameX: Float, guestNameY: Float, guestNameSize: Float,
         showGuestName: Boolean,
-        isDefault: Boolean = true
+        isDefault: Boolean = true,
+        eventCodeColor: String = "#C62828",
+        guestNameColor: String = "#2E7D32",
+        guestNameFont: String = "arial.ttf"
     ) {
         viewModelScope.launch {
             val design = TicketDesign(
@@ -112,7 +115,10 @@ class MainViewModel @Inject constructor(
                 guestNameY = guestNameY,
                 guestNameSize = guestNameSize,
                 showGuestName = showGuestName,
-                isDefault = isDefault
+                isDefault = isDefault,
+                eventCodeColor = eventCodeColor,
+                guestNameColor = guestNameColor,
+                guestNameFont = guestNameFont
             )
             repository.addDesign(design)
             backupDatabase()
@@ -318,16 +324,71 @@ class MainViewModel @Inject constructor(
         )
         
         val baos = ByteArrayOutputStream()
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         for (x in 0 until width) {
             for (y in 0 until height) {
-                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.TRANSPARENT)
             }
         }
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
         bitmap.recycle() // Recycle immediately to free memory!
         
         return Image.getInstance(baos.toByteArray())
+    }
+
+    private fun renderTextToImage(text: String, fontSize: Float, fontColorHex: String, fontFileName: String, pdfWidth: Float): Image {
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        
+        val parsedColor = try {
+            android.graphics.Color.parseColor(fontColorHex)
+        } catch (e: Exception) {
+            android.graphics.Color.BLACK
+        }
+        paint.color = parsedColor
+        
+        // Load custom typeface from Assets
+        val typeface = try {
+            android.graphics.Typeface.createFromAsset(context.assets, "fonts/$fontFileName")
+        } catch (e: Exception) {
+            try {
+                android.graphics.Typeface.createFromAsset(context.assets, "fonts/arial.ttf")
+            } catch (ex: Exception) {
+                android.graphics.Typeface.DEFAULT_BOLD
+            }
+        }
+        paint.typeface = typeface
+        
+        // Base Font Size
+        val calculatedSize = fontSize * 38f
+        paint.textSize = calculatedSize
+        
+        // Measure exact text bounds
+        val textWidth = paint.measureText(text).coerceAtLeast(10f)
+        val fontMetrics = paint.fontMetrics
+        val textHeight = (fontMetrics.descent - fontMetrics.ascent).coerceAtLeast(10f)
+        
+        // Create matching transparent bitmap with some padding
+        val paddingX = 20
+        val paddingY = 10
+        val bmpW = (textWidth + paddingX * 2).toInt()
+        val bmpH = (textHeight + paddingY * 2).toInt()
+        
+        val bitmap = Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+        
+        paint.textAlign = android.graphics.Paint.Align.LEFT
+        val x = paddingX.toFloat()
+        val y = paddingY.toFloat() - fontMetrics.ascent
+        
+        canvas.drawText(text, x, y, paint)
+        
+        val baos = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+        bitmap.recycle()
+        
+        val img = Image.getInstance(baos.toByteArray())
+        return img
     }
 
     private fun generatePdfTickets(
@@ -388,40 +449,53 @@ class MainViewModel @Inject constructor(
                 
                 overContent.addImage(qrImage)
                 
-                // Draw Event Code & Ticket Number at exactly designed center of the text box
-                val textW = 0.3f
-                val textH = 0.08f
-                val ecX = (design.eventCodeX + textW / 2f) * pdfWidth
-                val ecY = (1.0f - (design.eventCodeY + textH / 2f)) * pdfHeight - (design.eventCodeSize * 3f) // small offset for baseline adjustment
+                // Draw Event Code & Ticket Number
+                val ecBoxW = 0.3f * pdfWidth
+                val ecBoxH = 0.08f * pdfHeight
+                val ecBoxX = design.eventCodeX * pdfWidth
+                val ecBoxY = (1.0f - design.eventCodeY - 0.08f) * pdfHeight
                 
                 val eventCodeText = "${ticket.eventCode} - ${ticket.ticketNumber}"
-                val fontBase = com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
-                overContent.beginText()
-                val fontCodeSize = (design.eventCodeSize * 13f) * (pdfWidth / 595f) // perfect size calibration
-                overContent.setFontAndSize(fontBase, fontCodeSize)
-                overContent.showTextAligned(PdfContentByte.ALIGN_CENTER, eventCodeText, ecX, ecY, 0f)
-                overContent.endText()
+                val ecImg = renderTextToImage(eventCodeText, design.eventCodeSize, design.eventCodeColor, "arial.ttf", pdfWidth)
+                
+                // Scale proportionally to fit inside ecBox
+                val ecImgW = ecImg.width
+                val ecImgH = ecImg.height
+                val ecScale = (ecBoxW / ecImgW).coerceAtMost(ecBoxH / ecImgH)
+                val finalEcW = ecImgW * ecScale
+                val finalEcH = ecImgH * ecScale
+                
+                // Center inside box
+                val finalEcX = ecBoxX + (ecBoxW - finalEcW) / 2f
+                val finalEcY = ecBoxY + (ecBoxH - finalEcH) / 2f
+                
+                ecImg.setAbsolutePosition(finalEcX, finalEcY)
+                ecImg.scaleAbsolute(finalEcW, finalEcH)
+                overContent.addImage(ecImg)
                 
                 // Draw Guest Name if not empty (always draw to bypass any toggle bugs!)
                 if (ticket.guestName.isNotEmpty()) {
-                    val gW = 0.4f
-                    val gH = 0.08f
-                    val gnX = (design.guestNameX + gW / 2f) * pdfWidth
-                    val gnY = (1.0f - (design.guestNameY + gH / 2f)) * pdfHeight - (design.guestNameSize * 3f)
+                    val gBoxW = 0.4f * pdfWidth
+                    val gBoxH = 0.08f * pdfHeight
+                    val gBoxX = design.guestNameX * pdfWidth
+                    val gBoxY = (1.0f - design.guestNameY - 0.08f) * pdfHeight
                     
-                    overContent.beginText()
-                    // Safe Arabic font loader from Assets
-                    val fontArabic = try {
-                        val inputStream = context.assets.open("fonts/arial.ttf")
-                        val bytes = inputStream.readBytes()
-                        com.itextpdf.text.pdf.BaseFont.createFont("fonts/arial.ttf", com.itextpdf.text.pdf.BaseFont.IDENTITY_H, com.itextpdf.text.pdf.BaseFont.EMBEDDED, com.itextpdf.text.pdf.BaseFont.CACHED, bytes, null)
-                    } catch (e: Exception) {
-                        com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA_BOLD, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
-                    }
-                    val fontGuestSize = (design.guestNameSize * 13f) * (pdfWidth / 595f) // perfect size calibration
-                    overContent.setFontAndSize(fontArabic, fontGuestSize)
-                    overContent.showTextAligned(PdfContentByte.ALIGN_CENTER, ticket.guestName, gnX, gnY, 0f)
-                    overContent.endText()
+                    val gImg = renderTextToImage(ticket.guestName, design.guestNameSize, design.guestNameColor, design.guestNameFont, pdfWidth)
+                    
+                    // Scale proportionally to fit inside gBox
+                    val gImgW = gImg.width
+                    val gImgH = gImg.height
+                    val gScale = (gBoxW / gImgW).coerceAtMost(gBoxH / gImgH)
+                    val finalGW = gImgW * gScale
+                    val finalGH = gImgH * gScale
+                    
+                    // Center inside box
+                    val finalGX = gBoxX + (gBoxW - finalGW) / 2f
+                    val finalGY = gBoxY + (gBoxH - finalGH) / 2f
+                    
+                    gImg.setAbsolutePosition(finalGX, finalGY)
+                    gImg.scaleAbsolute(finalGW, finalGH)
+                    overContent.addImage(gImg)
                 }
             }
             

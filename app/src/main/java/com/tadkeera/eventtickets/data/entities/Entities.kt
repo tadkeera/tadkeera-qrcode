@@ -45,7 +45,10 @@ data class TicketDesign(
     val guestNameY: Float,
     val guestNameSize: Float,
     val showGuestName: Boolean,
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    val eventCodeColor: String = "#C62828", // default Red
+    val guestNameColor: String = "#2E7D32", // default Green
+    val guestNameFont: String = "arial.ttf" // default Amiri
 )
 
 @Entity(tableName = "guest_names")

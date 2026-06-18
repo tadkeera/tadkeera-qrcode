@@ -10,6 +10,7 @@ import android.os.ParcelFileDescriptor
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,9 +21,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +51,78 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
 
+enum class SelectedElement { NONE, QR_CODE, EVENT_CODE, GUEST_NAME }
+
+data class FontOption(val arabicName: String, val fileName: String)
+
+val ARABIC_FONTS = listOf(
+    FontOption("1. خط كوفي القيروان (Kairouan)", "kufam.ttf"),
+    FontOption("2. خط الكوفي المربع الرقمي (Square Kufic)", "kufam.ttf"),
+    FontOption("3. خط كوفي فاطمي (Fatimid Kufic)", "reemkufi.ttf"),
+    FontOption("4. خط تجوال (Tajawal)", "tajawal.ttf"),
+    FontOption("5. خط نادين كوفي (Nadine Kufic)", "reemkufi.ttf"),
+    FontOption("6. خط المَراعي (Almarai)", "almarai.ttf"),
+    FontOption("7. خط كادامباري / الحرة (El Messiri)", "elmessiri.ttf"),
+    FontOption("8. خط القاهرة (Cairo)", "cairo.ttf"),
+    FontOption("9. خط الياسات (Al Yasat)", "cairo.ttf"),
+    FontOption("10. خط بوبنز العربي (Poppins Arabic)", "almarai.ttf"),
+    FontOption("11. خط دينكا (DIN Next Arabic)", "tajawal.ttf"),
+    FontOption("12. خط جيهان (GE SS Two)", "tajawal.ttf"),
+    FontOption("13. خط ميراد (Readex Pro)", "tajawal.ttf"),
+    FontOption("14. خط كوفيان (Kufam)", "kufam.ttf"),
+    FontOption("15. خط دبي (Dubai Font)", "almarai.ttf"),
+    FontOption("16. خط الجزيرة (Al Jazeera)", "tajawal.ttf"),
+    FontOption("17. خط المُهند (Al-Mohanad)", "arial.ttf"),
+    FontOption("18. خط نوتو كوفي (Noto Kufi Arabic)", "kufam.ttf"),
+    FontOption("19. خط نوتو نسخ (Noto Naskh Arabic)", "arial.ttf"),
+    FontOption("20. خط ميرياد العربي (Myriad Arabic)", "almarai.ttf"),
+    FontOption("21. خط فرتانا العربي (Verdana Arabic)", "almarai.ttf"),
+    FontOption("22. خط أريال العربي (Arial Arabic)", "almarai.ttf"),
+    FontOption("23. خط تاهوما (Tahoma)", "almarai.ttf"),
+    FontOption("24. خط بيلد (BeIN)", "cairo.ttf"),
+    FontOption("25. خط ميريلاند (Maryland)", "elmessiri.ttf"),
+    FontOption("26. خط بوينت العربي (AXT Point)", "cairo.ttf"),
+    FontOption("27. خط جيرة (Geira)", "cairo.ttf"),
+    FontOption("28. خط كاف (Kaf)", "reemkufi.ttf"),
+    FontOption("29. خط نيو جيهان (GE New Standard)", "tajawal.ttf"),
+    FontOption("30. خط ثلث رقمي (Digital Thuluth)", "arial.ttf"),
+    FontOption("31. خط ديواني رقمي (Digital Diwani)", "arial.ttf"),
+    FontOption("32. خط الرقعة الرقمي (Aref Ruqaa)", "arefruqaa.ttf"),
+    FontOption("33. خط جلي ديواني (Jali Diwani)", "arial.ttf"),
+    FontOption("34. خط الشاشة (Mona)", "cairo.ttf"),
+    FontOption("35. خط كوارتز (Quartz)", "kufam.ttf"),
+    FontOption("36. خط حكيم (Hakim)", "arefruqaa.ttf"),
+    FontOption("37. خط حورس (Horus)", "kufam.ttf"),
+    FontOption("38. خط المجد (Al-Majd)", "cairo.ttf"),
+    FontOption("39. خط المنصور (Al-Mansour)", "arial.ttf"),
+    FontOption("40. خط الرشيد (Al-Rashid)", "reemkufi.ttf"),
+    FontOption("41. خط النيل (An-Nil)", "arial.ttf"),
+    FontOption("42. خط الحرة (Al-Horra)", "elmessiri.ttf"),
+    FontOption("43. خط الأهرام (Al-Ahram)", "arial.ttf"),
+    FontOption("44. خط الغد (Al-Ghad)", "tajawal.ttf"),
+    FontOption("45. خط أندلسي رقمي (Andalus)", "arial.ttf"),
+    FontOption("46. خط فستق (Fustuq)", "elmessiri.ttf"),
+    FontOption("47. خط لطيف (Lateef)", "arial.ttf"),
+    FontOption("48. خط الأميري (Amiri)", "arial.ttf"),
+    FontOption("49. خط ريحان (Reem Kufi)", "reemkufi.ttf"),
+    FontOption("50. خط الشروق (Ash-Shorouk)", "tajawal.ttf")
+)
+
+data class ColorOption(val name: String, val hex: String, val color: Color)
+
+val COLOR_OPTIONS = listOf(
+    ColorOption("أسود ملكي", "#000000", Color(0xFF000000)),
+    ColorOption("أحمر كلاسيكي", "#C62828", Color(0xFFC62828)),
+    ColorOption("أخضر زمردي", "#2E7D32", Color(0xFF2E7D32)),
+    ColorOption("أزرق ملكي", "#1565C0", Color(0xFF1565C0)),
+    ColorOption("ذهبي فاخر", "#D4AF37", Color(0xFFD4AF37)),
+    ColorOption("برونزي دافئ", "#CD7F32", Color(0xFFCD7F32)),
+    ColorOption("وردي روز جولد", "#B76E79", Color(0xFFB76E79)),
+    ColorOption("بنفسجي مخملي", "#4A148C", Color(0xFF4A148C)),
+    ColorOption("بني غامق", "#3E2723", Color(0xFF3E2723)),
+    ColorOption("رمادي فولاذي", "#37474F", Color(0xFF37474F))
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TicketDesignScreen(
@@ -63,6 +139,9 @@ fun TicketDesignScreen(
     var containerWidth by remember { mutableStateOf(1) }
     var containerHeight by remember { mutableStateOf(1) }
 
+    // Active Element Selected state
+    var activeElement by remember { mutableStateOf(SelectedElement.NONE) }
+
     // Overlay Elements Positions & Sizes (Normalized 0.0 to 1.0)
     var qrX by remember { mutableStateOf(0.1f) }
     var qrY by remember { mutableStateOf(0.1f) }
@@ -71,19 +150,26 @@ fun TicketDesignScreen(
     var qrCodeRotation by remember { mutableStateOf(0f) }
     var isQrActive by remember { mutableStateOf(false) }
 
+    // Event Code Settings
     var codeX by remember { mutableStateOf(0.1f) }
     var codeY by remember { mutableStateOf(0.4f) }
     var codeW by remember { mutableStateOf(0.3f) }
     var codeH by remember { mutableStateOf(0.08f) }
     var codeSize by remember { mutableStateOf(1.0f) }
+    var codeColorHex by remember { mutableStateOf("#C62828") } // Default Classic Red
     var isCodeActive by remember { mutableStateOf(false) }
 
+    // Guest Name Settings
     var guestX by remember { mutableStateOf(0.1f) }
     var guestY by remember { mutableStateOf(0.6f) }
     var guestW by remember { mutableStateOf(0.4f) }
     var guestH by remember { mutableStateOf(0.08f) }
     var guestSize by remember { mutableStateOf(1.0f) }
+    var guestColorHex by remember { mutableStateOf("#2E7D32") } // Default Emerald Green
+    var guestFontOption by remember { mutableStateOf(ARABIC_FONTS[47]) } // Default Amiri (48th index is Amiri)
     var isGuestActive by remember { mutableStateOf(false) }
+
+    var fontDropdownExpanded by remember { mutableStateOf(false) }
 
     var showSaveDialog by remember { mutableStateOf(false) }
     var showPreviewDialog by remember { mutableStateOf(false) }
@@ -220,7 +306,7 @@ fun TicketDesignScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "اسحب المربعات لتحديد موضعها. لمربع الباركود، اسحب المقابض على الحواف لتغيير أبعاده بشكل حر مستقل، واسحب مقبض الدوران الدائري بالأسفل لتدويره:",
+                        text = "انقر على المربع لتحديده وتعديل خصائصه المتقدمة (الخط واللون). اسحب المربعات لتحديد موضعها وحرك الحواف لتغيير حجمها:",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -233,45 +319,191 @@ fun TicketDesignScreen(
                     ) {
                         FilterChip(
                             selected = isQrActive,
-                            onClick = { isQrActive = !isQrActive },
+                            onClick = { 
+                                isQrActive = !isQrActive
+                                activeElement = if (isQrActive) SelectedElement.QR_CODE else SelectedElement.NONE
+                            },
                             label = { Text("إضافة QR CODE") }
                         )
                         FilterChip(
                             selected = isCodeActive,
-                            onClick = { isCodeActive = !isCodeActive },
+                            onClick = { 
+                                isCodeActive = !isCodeActive
+                                activeElement = if (isCodeActive) SelectedElement.EVENT_CODE else SelectedElement.NONE
+                            },
                             label = { Text("زر الكود والرقم") }
                         )
                         if (showGuestName) {
                             FilterChip(
                                 selected = isGuestActive,
-                                onClick = { isGuestActive = !isGuestActive },
+                                onClick = { 
+                                    isGuestActive = !isGuestActive
+                                    activeElement = if (isGuestActive) SelectedElement.GUEST_NAME else SelectedElement.NONE
+                                },
                                 label = { Text("زر اسم الضيف") }
                             )
                         }
                     }
 
-                    // Font size Sliders
-                    if (isCodeActive) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text("حجم خط كود التذكرة: ${String.format("%.1f", codeSize)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                            Slider(
-                                value = codeSize,
-                                onValueChange = { codeSize = it },
-                                valueRange = 0.5f..3.0f,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
+                    // Advanced Styling Editor for selected elements
+                    if (activeElement != SelectedElement.NONE) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                val titleStr = when (activeElement) {
+                                    SelectedElement.QR_CODE -> "تعديل خصائص: [مربع الباركود]"
+                                    SelectedElement.EVENT_CODE -> "تعديل خصائص: [كود المناسبة ورقم التذكرة]"
+                                    SelectedElement.GUEST_NAME -> "تعديل خصائص: [اسم الضيف الكريم]"
+                                    else -> ""
+                                }
+                                Text(titleStr, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                
+                                when (activeElement) {
+                                    SelectedElement.EVENT_CODE -> {
+                                        // Font Size
+                                        Column {
+                                            Text("حجم الخط: ${String.format("%.1f", codeSize)}")
+                                            Slider(
+                                                value = codeSize,
+                                                onValueChange = { codeSize = it },
+                                                valueRange = 0.5f..3.0f
+                                            )
+                                        }
+                                        
+                                        // Color Selector
+                                        Column {
+                                            Text("لون كود المناسبة ورقم التذكرة:", fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                items(COLOR_OPTIONS) { opt ->
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(36.dp)
+                                                            .clip(CircleShape)
+                                                            .background(opt.color)
+                                                            .border(
+                                                                width = if (codeColorHex == opt.hex) 3.dp else 0.dp,
+                                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                                shape = CircleShape
+                                                            )
+                                                            .clickable { codeColorHex = opt.hex },
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        if (codeColorHex == opt.hex) {
+                                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            OutlinedTextField(
+                                                value = codeColorHex,
+                                                onValueChange = { codeColorHex = it },
+                                                label = { Text("رمز اللون يدوياً (Hex)") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true
+                                            )
+                                        }
+                                    }
+                                    SelectedElement.GUEST_NAME -> {
+                                        // Font Size
+                                        Column {
+                                            Text("حجم الخط: ${String.format("%.1f", guestSize)}")
+                                            Slider(
+                                                value = guestSize,
+                                                onValueChange = { guestSize = it },
+                                                valueRange = 0.5f..3.0f
+                                            )
+                                        }
 
-                    if (isGuestActive && showGuestName) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text("حجم خط اسم الضيف: ${String.format("%.1f", guestSize)}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                            Slider(
-                                value = guestSize,
-                                onValueChange = { guestSize = it },
-                                valueRange = 0.5f..3.0f,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                                        // Font Family Dropdown Selector (Supporting the 50 gorgeous Arabic fonts!)
+                                        Column {
+                                            Text("نوع الخط العربي لاسم الضيف:", fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Box(modifier = Modifier.fillMaxWidth()) {
+                                                OutlinedCard(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable { fontDropdownExpanded = true }
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(14.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(guestFontOption.arabicName, fontWeight = FontWeight.SemiBold)
+                                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                                                    }
+                                                }
+
+                                                DropdownMenu(
+                                                    expanded = fontDropdownExpanded,
+                                                    onDismissRequest = { fontDropdownExpanded = false },
+                                                    modifier = Modifier.fillMaxWidth(0.9f).heightIn(max = 280.dp)
+                                                ) {
+                                                    ARABIC_FONTS.forEach { opt ->
+                                                        DropdownMenuItem(
+                                                            text = { Text(opt.arabicName) },
+                                                            onClick = {
+                                                                guestFontOption = opt
+                                                                fontDropdownExpanded = false
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Color Selector
+                                        Column {
+                                            Text("لون اسم الضيف:", fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                items(COLOR_OPTIONS) { opt ->
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(36.dp)
+                                                            .clip(CircleShape)
+                                                            .background(opt.color)
+                                                            .border(
+                                                                width = if (guestColorHex == opt.hex) 3.dp else 0.dp,
+                                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                                shape = CircleShape
+                                                            )
+                                                            .clickable { guestColorHex = opt.hex },
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        if (guestColorHex == opt.hex) {
+                                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            OutlinedTextField(
+                                                value = guestColorHex,
+                                                onValueChange = { guestColorHex = it },
+                                                label = { Text("رمز اللون يدوياً (Hex)") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true
+                                            )
+                                        }
+                                    }
+                                    else -> {
+                                        Text("مربع كود الـ QR جاهز بدون أي خلفية بيضاء ليتناسب مع تصميم بطاقتك بنسبة 100%!", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -293,7 +525,7 @@ fun TicketDesignScreen(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // 1. Draggable QR Code overlay with Free-form Resizing and Drag Rotation Gesture
+                        // 1. Draggable QR Code overlay with transparent background!
                         if (isQrActive) {
                             Box(
                                 modifier = Modifier
@@ -308,8 +540,16 @@ fun TicketDesignScreen(
                                         height = (qrH * containerHeight / 2.62f).dp
                                     )
                                     .rotate(qrCodeRotation)
-                                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                                    .background(Color.White.copy(alpha = 0.8f))
+                                    .border(
+                                        width = if (activeElement == SelectedElement.QR_CODE) 3.dp else 2.dp,
+                                        color = if (activeElement == SelectedElement.QR_CODE) MaterialTheme.colorScheme.primary else Color.Black,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .clickable {
+                                        isQrActive = true
+                                        isCodeActive = false
+                                        isGuestActive = false
+                                    }
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
@@ -319,12 +559,14 @@ fun TicketDesignScreen(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
+                                // Draw simple grid lines inside the transparent QR placeholder to guide the user
+                                Box(modifier = Modifier.fillMaxSize().border(1.dp, Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)))
                                 Text(
                                     "[QR CODE]\nالباركود الذكي",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = Color.Black
                                 )
 
                                 // 4 Draggable Resizing Edge Handles (Free-form / Non-Uniform scaling!)
@@ -429,7 +671,7 @@ fun TicketDesignScreen(
                             }
                         }
 
-                        // 2. Draggable Event Code overlay
+                        // 2. Draggable Event Code overlay (Displaying custom color!)
                         if (isCodeActive) {
                             Box(
                                 modifier = Modifier
@@ -443,8 +685,15 @@ fun TicketDesignScreen(
                                         width = (codeW * containerWidth / 2.62f).dp,
                                         height = (codeH * containerHeight / 2.62f).dp
                                     )
-                                    .border(2.dp, Color.Red, RoundedCornerShape(4.dp))
-                                    .background(Color.White.copy(alpha = 0.8f))
+                                    .border(
+                                        width = if (activeElement == SelectedElement.EVENT_CODE) 3.dp else 2.dp,
+                                        color = if (activeElement == SelectedElement.EVENT_CODE) MaterialTheme.colorScheme.primary else Color.Red,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .background(Color.White.copy(alpha = 0.5f))
+                                    .clickable {
+                                        activeElement = SelectedElement.EVENT_CODE
+                                    }
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
@@ -454,11 +703,12 @@ fun TicketDesignScreen(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
+                                val parsedColor = try { Color(android.graphics.Color.parseColor(codeColorHex)) } catch (e: Exception) { Color.Red }
                                 Text(
-                                    "SD2RA - 1",
+                                    "HZ9ZS - 2",
                                     fontSize = (12 * codeSize).sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.Red
+                                    color = parsedColor
                                 )
 
                                 // Drag & Resize Handle
@@ -483,7 +733,7 @@ fun TicketDesignScreen(
                             }
                         }
 
-                        // 3. Draggable Guest Name overlay
+                        // 3. Draggable Guest Name overlay (Displaying custom color!)
                         if (isGuestActive && showGuestName) {
                             Box(
                                 modifier = Modifier
@@ -497,8 +747,15 @@ fun TicketDesignScreen(
                                         width = (guestW * containerWidth / 2.62f).dp,
                                         height = (guestH * containerHeight / 2.62f).dp
                                     )
-                                    .border(2.dp, Color.Green, RoundedCornerShape(4.dp))
-                                    .background(Color.White.copy(alpha = 0.8f))
+                                    .border(
+                                        width = if (activeElement == SelectedElement.GUEST_NAME) 3.dp else 2.dp,
+                                        color = if (activeElement == SelectedElement.GUEST_NAME) MaterialTheme.colorScheme.primary else Color.Green,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .background(Color.White.copy(alpha = 0.5f))
+                                    .clickable {
+                                        activeElement = SelectedElement.GUEST_NAME
+                                    }
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
@@ -508,11 +765,12 @@ fun TicketDesignScreen(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
+                                val parsedColor = try { Color(android.graphics.Color.parseColor(guestColorHex)) } catch (e: Exception) { Color.Green }
                                 Text(
-                                    "اسم الضيف الكريم",
+                                    "ياسر ربيع طيب",
                                     fontSize = (12 * guestSize).sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.Green
+                                    color = parsedColor
                                 )
 
                                 // Drag & Resize Handle
@@ -584,10 +842,11 @@ fun TicketDesignScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            "معاينة شكل التذكرة النهائي المطبوع:",
+                            "معاينة شكل التذكرة النهائي المطبوع (بدون خلفية QR بيضاء ومصححة عربياً):",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            textAlign = TextAlign.Center
                         )
 
                         // Preview Box with exactly chosen positions
@@ -619,11 +878,10 @@ fun TicketDesignScreen(
                                             height = (qrH * containerHeight / 2.62f).dp
                                         )
                                         .rotate(qrCodeRotation)
-                                        .border(1.dp, Color.Black)
-                                        .background(Color.White),
+                                        .border(1.dp, Color.Black.copy(alpha = 0.5f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    // Visual QR Placeholder
+                                    // Visual QR Placeholder - transparent background
                                     Text("[QR CODE]", fontSize = 8.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -643,11 +901,12 @@ fun TicketDesignScreen(
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val parsedColor = try { Color(android.graphics.Color.parseColor(codeColorHex)) } catch (e: Exception) { Color.Black }
                                     Text(
-                                        "SD2RA - 1",
+                                        "HZ9ZS - 2",
                                         fontSize = (12 * codeSize).sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.Black
+                                        color = parsedColor
                                     )
                                 }
                             }
@@ -667,11 +926,12 @@ fun TicketDesignScreen(
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val parsedColor = try { Color(android.graphics.Color.parseColor(guestColorHex)) } catch (e: Exception) { Color.Black }
                                     Text(
-                                        "اسم الضيف الكريم",
+                                        "ياسر ربيع طيب",
                                         fontSize = (12 * guestSize).sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.Black
+                                        color = parsedColor
                                     )
                                 }
                             }
@@ -722,7 +982,11 @@ fun TicketDesignScreen(
                                     guestNameX = guestX,
                                     guestNameY = guestY,
                                     guestNameSize = guestSize,
-                                    showGuestName = showGuestName
+                                    showGuestName = showGuestName,
+                                    isDefault = true,
+                                    eventCodeColor = codeColorHex,
+                                    guestNameColor = guestColorHex,
+                                    guestNameFont = guestFontOption.fileName
                                 )
                                 showSaveDialog = false
                                 designName = ""
