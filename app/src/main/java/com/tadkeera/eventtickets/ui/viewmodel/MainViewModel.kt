@@ -471,11 +471,8 @@ class MainViewModel @Inject constructor(
                     document.add(pName)
                 }
                 
-                // Add QR Code using native iText BarcodeQRCode with zero margins
-                val hints = java.util.HashMap<com.itextpdf.text.pdf.qrcode.EncodeHintType, Any>()
-                hints[com.itextpdf.text.pdf.qrcode.EncodeHintType.MARGIN] = 0
-                val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, hints)
-                val qrImage = barcode.getImage()
+                // Add QR Code using native generator
+                val qrImage = generateQRCodeImage(ticket.qrCodeData, 150, 150)
                 qrImage.scaleAbsolute(150f, 150f)
                 qrImage.alignment = com.itextpdf.text.Element.ALIGN_CENTER
                 document.add(qrImage)
