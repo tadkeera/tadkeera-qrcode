@@ -1,6 +1,7 @@
 package com.tadkeera.eventtickets.ui.viewmodel
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Environment
 import androidx.lifecycle.ViewModel
@@ -304,6 +305,31 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    private fun generateQRCodeImage(text: String, width: Int = 150, height: Int = 150): Image {
+        val hints = java.util.HashMap<com.google.zxing.EncodeHintType, Any>()
+        hints[com.google.zxing.EncodeHintType.MARGIN] = 0 // Remove white quiet zone margins!
+        
+        val bitMatrix = com.google.zxing.qrcode.QRCodeWriter().encode(
+            text,
+            com.google.zxing.BarcodeFormat.QR_CODE,
+            width,
+            height,
+            hints
+        )
+        
+        val baos = ByteArrayOutputStream()
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+        for (x in 0 until width) {
+            for (y in 0 until height) {
+                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+        bitmap.recycle() // Recycle immediately to free memory!
+        
+        return Image.getInstance(baos.toByteArray())
+    }
+
     private fun generatePdfTickets(
         tickets: List<Ticket>,
         templateFile: File,
@@ -341,11 +367,8 @@ class MainViewModel @Inject constructor(
                 val pageNum = i + 1
                 val overContent = stamper.getOverContent(pageNum)
                 
-                // Draw QR Code using native iText BarcodeQRCode with zero margins (Quiet Zone)
-                val hints = java.util.HashMap<com.itextpdf.text.pdf.qrcode.EncodeHintType, Any>()
-                hints[com.itextpdf.text.pdf.qrcode.EncodeHintType.MARGIN] = 0
-                val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, hints)
-                val qrImage = barcode.getImage()
+                // Draw QR Code using zero margins generator
+                val qrImage = generateQRCodeImage(ticket.qrCodeData, 150, 150)
                 
                 val pageSize = reader2.getPageSize(pageNum)
                 val pdfWidth = pageSize.width
