@@ -342,8 +342,8 @@ class MainViewModel @Inject constructor(
                 val overContent = stamper.getOverContent(pageNum)
                 
                 // Draw QR Code using native iText BarcodeQRCode with zero margins (Quiet Zone)
-                val hints = java.util.HashMap<com.google.zxing.EncodeHintType, Any>()
-                hints[com.google.zxing.EncodeHintType.MARGIN] = 0
+                val hints = java.util.HashMap<com.itextpdf.text.pdf.qrcode.EncodeHintType, Any>()
+                hints[com.itextpdf.text.pdf.qrcode.EncodeHintType.MARGIN] = 0
                 val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, hints)
                 val qrImage = barcode.getImage()
                 
@@ -449,8 +449,8 @@ class MainViewModel @Inject constructor(
                 }
                 
                 // Add QR Code using native iText BarcodeQRCode with zero margins
-                val hints = java.util.HashMap<com.google.zxing.EncodeHintType, Any>()
-                hints[com.google.zxing.EncodeHintType.MARGIN] = 0
+                val hints = java.util.HashMap<com.itextpdf.text.pdf.qrcode.EncodeHintType, Any>()
+                hints[com.itextpdf.text.pdf.qrcode.EncodeHintType.MARGIN] = 0
                 val barcode = com.itextpdf.text.pdf.BarcodeQRCode(ticket.qrCodeData, 1, 1, hints)
                 val qrImage = barcode.getImage()
                 qrImage.scaleAbsolute(150f, 150f)
