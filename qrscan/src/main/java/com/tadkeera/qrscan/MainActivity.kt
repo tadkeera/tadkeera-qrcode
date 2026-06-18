@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
                 ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
             }
             if (missing.isNotEmpty()) {
-                ActivityCompat.requestPermissions(missing.toTypedArray(), 101)
+                ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)
             }
         }
     }
@@ -772,13 +772,13 @@ fun generatePdfReport(context: Context, event: Event, tickets: List<Ticket>): Fi
     
     val boldPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         textSize = 10f
-        fontWeight = android.graphics.Typeface.BOLD
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
         color = android.graphics.Color.BLACK
     }
     
     val headerPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         textSize = 15f
-        fontWeight = android.graphics.Typeface.BOLD
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
         color = android.graphics.Color.parseColor("#1565C0") // Royal Blue
     }
     
