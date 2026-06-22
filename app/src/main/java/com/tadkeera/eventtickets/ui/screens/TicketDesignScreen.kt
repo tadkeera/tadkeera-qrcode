@@ -55,57 +55,26 @@ enum class SelectedElement { NONE, QR_CODE, EVENT_CODE, GUEST_NAME }
 
 data class FontOption(val arabicName: String, val fileName: String)
 
-val ARABIC_FONTS = listOf(
-    FontOption("1. خط كوفي القيروان (Kairouan)", "kufam.ttf"),
-    FontOption("2. خط الكوفي المربع الرقمي (Square Kufic)", "kufam.ttf"),
-    FontOption("3. خط كوفي فاطمي (Fatimid Kufic)", "reemkufi.ttf"),
-    FontOption("4. خط تجوال (Tajawal)", "tajawal.ttf"),
-    FontOption("5. خط نادين كوفي (Nadine Kufic)", "reemkufi.ttf"),
-    FontOption("6. خط المَراعي (Almarai)", "almarai.ttf"),
-    FontOption("7. خط كادامباري / الحرة (El Messiri)", "elmessiri.ttf"),
-    FontOption("8. خط القاهرة (Cairo)", "cairo.ttf"),
-    FontOption("9. خط الياسات (Al Yasat)", "cairo.ttf"),
-    FontOption("10. خط بوبنز العربي (Poppins Arabic)", "almarai.ttf"),
-    FontOption("11. خط دينكا (DIN Next Arabic)", "tajawal.ttf"),
-    FontOption("12. خط جيهان (GE SS Two)", "tajawal.ttf"),
-    FontOption("13. خط ميراد (Readex Pro)", "tajawal.ttf"),
-    FontOption("14. خط كوفيان (Kufam)", "kufam.ttf"),
-    FontOption("15. خط دبي (Dubai Font)", "almarai.ttf"),
-    FontOption("16. خط الجزيرة (Al Jazeera)", "tajawal.ttf"),
-    FontOption("17. خط المُهند (Al-Mohanad)", "arial.ttf"),
-    FontOption("18. خط نوتو كوفي (Noto Kufi Arabic)", "kufam.ttf"),
-    FontOption("19. خط نوتو نسخ (Noto Naskh Arabic)", "arial.ttf"),
-    FontOption("20. خط ميرياد العربي (Myriad Arabic)", "almarai.ttf"),
-    FontOption("21. خط فرتانا العربي (Verdana Arabic)", "almarai.ttf"),
-    FontOption("22. خط أريال العربي (Arial Arabic)", "almarai.ttf"),
-    FontOption("23. خط تاهوما (Tahoma)", "almarai.ttf"),
-    FontOption("24. خط بيلد (BeIN)", "cairo.ttf"),
-    FontOption("25. خط ميريلاند (Maryland)", "elmessiri.ttf"),
-    FontOption("26. خط بوينت العربي (AXT Point)", "cairo.ttf"),
-    FontOption("27. خط جيرة (Geira)", "cairo.ttf"),
-    FontOption("28. خط كاف (Kaf)", "reemkufi.ttf"),
-    FontOption("29. line_ge_new_standard", "tajawal.ttf"),
-    FontOption("30. خط ثلث رقمي (Digital Thuluth)", "arial.ttf"),
-    FontOption("31. خط ديواني رقمي (Digital Diwani)", "arial.ttf"),
-    FontOption("32. خط الرقعة الرقمي (Aref Ruqaa)", "arefruqaa.ttf"),
-    FontOption("33. خط جلي ديواني (Jali Diwani)", "arial.ttf"),
-    FontOption("34. خط الشاشة (Mona)", "cairo.ttf"),
-    FontOption("35. خط كوارتز (Quartz)", "kufam.ttf"),
-    FontOption("36. خط حكيم (Hakim)", "arefruqaa.ttf"),
-    FontOption("37. خط حورس (Horus)", "kufam.ttf"),
-    FontOption("38. خط المجد (Al-Majd)", "cairo.ttf"),
-    FontOption("39. خط المنصور (Al-Mansour)", "arial.ttf"),
-    FontOption("40. خط الرشيد (Al-Rashid)", "reemkufi.ttf"),
-    FontOption("41. خط النيل (An-Nil)", "arial.ttf"),
-    FontOption("42. خط الحرة (Al-Horra)", "elmessiri.ttf"),
-    FontOption("43. خط الأهرام (Al-Ahram)", "arial.ttf"),
-    FontOption("44. خط الغد (Al-Ghad)", "tajawal.ttf"),
-    FontOption("45. خط أندلسي رقمي (Andalus)", "arial.ttf"),
-    FontOption("46. خط فستق (Fustuq)", "elmessiri.ttf"),
-    FontOption("47. خط لطيف (Lateef)", "arial.ttf"),
-    FontOption("48. خط الأميري (Amiri)", "arial.ttf"),
-    FontOption("49. خط ريحان (Reem Kufi)", "reemkufi.ttf"),
-    FontOption("50. خط الشروق (Ash-Shorouk)", "tajawal.ttf")
+val DISPLAY_FONTS = listOf(
+    FontOption("1. خط طفولي (Tufuli Arabic)", "elmessiri.ttf"),
+    FontOption("2. خط بكرة شبه مكثف (29LT Bukra Semi Condensed)", "almarai.ttf"),
+    FontOption("3. خط كوفام (Kufam)", "kufam.ttf"),
+    FontOption("4. خط بكرة مكثف (29LT Bukra Condensed)", "tajawal.ttf"),
+    FontOption("5. خط قاموس (TS Qamus)", "cairo.ttf"),
+    FontOption("6. خط بكرة (29LT Bukra)", "almarai.ttf"),
+    FontOption("7. خط أزكادينيا (Azkadinya)", "reemkufi.ttf"),
+    FontOption("8. خط ليمونادة (Lemonada)", "lemonada.ttf"),
+    FontOption("9. خط شريط الطيران (Air Strip Arabic)", "kufam.ttf"),
+    FontOption("10. خط فلفل (Felfel)", "elmessiri.ttf"),
+    FontOption("11. خط مجرة (Galaxy)", "tajawal.ttf"),
+    FontOption("12. خط سحاب (DG Sahabh)", "elmessiri.ttf"),
+    FontOption("13. خط عفيش (Afeesh)", "cairo.ttf"),
+    FontOption("14. خط فلافل (Falafel)", "elmessiri.ttf"),
+    FontOption("15. خط يوكيدج كوزمي (UKIJ Chiwer Kesme)", "reemkufi.ttf"),
+    FontOption("16. خط العربية (Alarabiya)", "arial.ttf"),
+    FontOption("17. خط حماة الإسلام (Ara Hamah Alislam)", "arefruqaa.ttf"),
+    FontOption("18. خط غرناطة (Granada)", "arefruqaa.ttf"),
+    FontOption("19. خط تونس (Hacen Tunisia)", "cairo.ttf")
 )
 
 data class ColorOption(val name: String, val hex: String, val color: Color)
@@ -167,7 +136,7 @@ fun TicketDesignScreen(
     var guestH by remember { mutableStateOf(0.08f) }
     var guestSize by remember { mutableStateOf(1.0f) }
     var guestColorHex by remember { mutableStateOf("#2E7D32") } // Default Emerald Green
-    var guestFontOption by remember { mutableStateOf(ARABIC_FONTS[47]) } // Default Amiri
+    var guestFontOption by remember { mutableStateOf(DISPLAY_FONTS[15]) } // Default Alarabiya (index 15 is Alarabiya)
     var guestWeight by remember { mutableStateOf("bold") } // normal, bold, extrabold
     var isGuestActive by remember { mutableStateOf(false) }
 
@@ -497,7 +466,7 @@ fun TicketDesignScreen(
                                                     onDismissRequest = { fontDropdownExpanded = false },
                                                     modifier = Modifier.fillMaxWidth(0.9f).heightIn(max = 280.dp)
                                                 ) {
-                                                    ARABIC_FONTS.forEach { opt ->
+                                                    DISPLAY_FONTS.forEach { opt ->
                                                         DropdownMenuItem(
                                                             text = { Text(opt.arabicName) },
                                                             onClick = {

@@ -39,8 +39,12 @@ fun TelegramLinkScreen(
     val coroutineScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE) }
 
-    var botToken by remember { mutableStateOf(prefs.getString("bot_token", "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y") ?: "") }
-    var channelId by remember { mutableStateOf(prefs.getString("channel_id", "-1004357014151") ?: "") }
+    // Use user's requested new default credentials!
+    val defaultBotToken = "8855448849:AAEOMwTZFNlZ2dRFwbsPdUjsMVVQDwg6_R0"
+    val defaultChannelId = "-1004389676098"
+
+    var botToken by remember { mutableStateOf(prefs.getString("bot_token", defaultBotToken) ?: "") }
+    var channelId by remember { mutableStateOf(prefs.getString("channel_id", defaultChannelId) ?: "") }
 
     var isConnecting by remember { mutableStateOf(false) }
     var isConnectionSuccess by remember { mutableStateOf(false) }
@@ -93,7 +97,7 @@ fun TelegramLinkScreen(
                     isConnectionSuccess = false
                 },
                 label = { Text("توكن البوت (Bot Token)") },
-                placeholder = { Text("8605619071:AAG10s...") },
+                placeholder = { Text("8855448849:AAEOMw...") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -105,16 +109,29 @@ fun TelegramLinkScreen(
                     isConnectionSuccess = false
                 },
                 label = { Text("آي دي القناة (Channel ID)") },
-                placeholder = { Text("-1004357014151") },
+                placeholder = { Text("-1004389676098") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Checkmark or Loading indicator
+            // Custom non-crashing loading feedback animation!
             if (isConnecting) {
-                CircularProgressIndicator()
+                var pulse by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        pulse = !pulse
+                        kotlinx.coroutines.delay(600)
+                    }
+                }
+                Text(
+                    text = "جاري التحقق من الاتصال بالخادم... 📡",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = if (pulse) MaterialTheme.colorScheme.primary else Color.Gray,
+                    textAlign = TextAlign.Center
+                )
             } else if (isConnectionSuccess) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(
