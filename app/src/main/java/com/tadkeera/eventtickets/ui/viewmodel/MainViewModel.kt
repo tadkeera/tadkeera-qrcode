@@ -922,4 +922,77 @@ class MainViewModel @Inject constructor(
             }
         }
     }
+
+    fun restoreBackupFromTelegram(onComplete: (Boolean, String?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val prefs = context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE)
+                val token = prefs.getString("bot_token", "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y") ?: "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y"
+                val channelId = prefs.getString("channel_id", "-1004357014151") ?: "-1004357014151"
+                
+                val updatesUrl = URL("https://api.telegram.org/bot$token/getUpdates")
+                val connection = updatesUrl.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connect()
+                
+                val jsonString = connection.inputStream.bufferedReader().use { it.readText() }
+                connection.disconnect()
+                
+                val responseMap = Gson().fromJson(jsonString, Map::class.java)
+                val resultList = responseMap["result"] as? List<*> ?: throw Exception("لا توجد ملفات مرفوعة مؤخراً في التحديثات")
+                
+                var latestFileId: String? = null
+                
+                for (item in resultList.reversed()) {
+                    val update = item as? Map<*, *> ?: continue
+                    val message = (update["message"] ?: update["channel_post"]) as? Map<*, *> ?: continue
+                    val document = message["document"] as? Map<*, *> ?: continue
+                    val fileName = document["file_name"] as? String ?: continue
+                    
+                    if (fileName.endsWith(".db")) {
+                        latestFileId = document["file_id"] as? String
+                        break
+                    }
+                }
+                
+                if (latestFileId == null) {
+                    throw Exception("لم يتم العثور على أي ملف نسخة احتياطية (.db) في تليجرام")
+                }
+                
+                val getFileUrl = URL("https://api.telegram.org/bot$token/getFile?file_id=$latestFileId")
+                val getFileConn = getFileUrl.openConnection() as HttpURLConnection
+                getFileConn.requestMethod = "GET"
+                val fileResString = getFileConn.inputStream.bufferedReader().use { it.readText() }
+                getFileConn.disconnect()
+                
+                val fileResMap = Gson().fromJson(fileResString, Map::class.java)
+                val fileResult = fileResMap["result"] as? Map<*, *> ?: throw Exception("فشل الحصول على رابط الملف")
+                val filePath = fileResult["file_path"] as? String ?: throw Exception("مسار الملف فارغ")
+                
+                val downloadUrl = URL("https://api.telegram.org/file/bot$token/$filePath")
+                val downloadConn = downloadUrl.openConnection() as HttpURLConnection
+                val bytes = downloadConn.inputStream.use { it.readBytes() }
+                downloadConn.disconnect()
+                
+                database.close()
+                val dbFile = context.getDatabasePath("tadkeera_db")
+                dbFile.writeBytes(bytes)
+                
+                val walFile = File(dbFile.path + "-wal")
+                if (walFile.exists()) walFile.delete()
+                val shmFile = File(dbFile.path + "-shm")
+                if (shmFile.exists()) shmFile.delete()
+                
+                withContext(Dispatchers.Main) {
+                    onComplete(true, "تم تنزيل واستعادة قاعدة البيانات من تليجرام بنجاح! يرجى إعادة تشغيل التطبيق.")
+                }
+                
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onComplete(false, e.message ?: "فشل الاستعادة من تليجرام")
+                }
+            }
+        }
+    }
 }
