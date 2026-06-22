@@ -14,6 +14,7 @@ import com.itextpdf.text.pdf.PdfReader
 import com.itextpdf.text.pdf.PdfStamper
 import com.itextpdf.text.pdf.PdfWriter
 import com.opencsv.CSVReader
+import com.tadkeera.eventtickets.data.TadkeeraDatabase
 import com.tadkeera.eventtickets.data.dao.TicketDao
 import com.tadkeera.eventtickets.data.entities.Event
 import com.tadkeera.eventtickets.data.entities.GuestName
@@ -32,6 +33,9 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -51,6 +55,7 @@ data class SyncPayload(
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: TicketRepository,
+    private val database: TadkeeraDatabase,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -73,6 +78,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             repository.addEvent(Event(eventName = name, eventDate = date))
             backupDatabase()
+            uploadBackupToTelegram()
         }
     }
 
@@ -80,6 +86,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteEventFully(event)
             backupDatabase()
+            uploadBackupToTelegram()
         }
     }
 
@@ -141,6 +148,7 @@ class MainViewModel @Inject constructor(
             )
             repository.addDesign(design)
             backupDatabase()
+            uploadBackupToTelegram()
         }
     }
 
@@ -157,6 +165,7 @@ class MainViewModel @Inject constructor(
                 e.printStackTrace()
             }
             backupDatabase()
+            uploadBackupToTelegram()
         }
     }
 
@@ -177,6 +186,7 @@ class MainViewModel @Inject constructor(
                 if (guestNames.isNotEmpty()) {
                     repository.addGuestNames(guestNames)
                     backupDatabase()
+                    uploadBackupToTelegram()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -197,6 +207,7 @@ class MainViewModel @Inject constructor(
                     )
                     repository.updateTicket(updated)
                     backupDatabase()
+                    uploadBackupToTelegram()
                     _scanResult.value = ScanResult.Duplicate(updated, ticket.scannedAt ?: System.currentTimeMillis())
                 } else {
                     val updated = ticket.copy(
@@ -206,6 +217,7 @@ class MainViewModel @Inject constructor(
                     )
                     repository.updateTicket(updated)
                     backupDatabase()
+                    uploadBackupToTelegram()
                     _scanResult.value = ScanResult.Success(updated)
                 }
             }
@@ -309,6 +321,8 @@ class MainViewModel @Inject constructor(
                     val pdfFile = File(design.pdfTemplatePath)
                     if (pdfFile.exists()) {
                         generatePdfTickets(tickets, pdfFile, outputFile, design)
+                        uploadPdfToTelegram(outputFile, event.eventName)
+                        uploadBackupToTelegram()
                         withContext(Dispatchers.Main) {
                             onComplete(outputFile)
                         }
@@ -318,6 +332,8 @@ class MainViewModel @Inject constructor(
                 
                 // Fallback: Generate simple tickets without template if no design uploaded
                 generateSimplePdfTickets(tickets, outputFile)
+                uploadPdfToTelegram(outputFile, event.eventName)
+                uploadBackupToTelegram()
                 withContext(Dispatchers.Main) {
                     onComplete(outputFile)
                 }
@@ -743,6 +759,9 @@ class MainViewModel @Inject constructor(
     fun restoreDatabaseBackup(uri: Uri, onComplete: (Boolean, String?) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Close database cleanly first!
+                database.close()
+                
                 val dbFile = context.getDatabasePath("tadkeera_db")
                 val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Failed to open stream")
                 
@@ -752,20 +771,154 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 
-                // Delete auxiliary WAL and SHM files to force database reload
+                // CRUCIAL: Delete auxiliary WAL and SHM files to force database reload and prevent Room from wiping out events!
                 val walFile = File(dbFile.path + "-wal")
                 if (walFile.exists()) walFile.delete()
                 val shmFile = File(dbFile.path + "-shm")
                 if (shmFile.exists()) shmFile.delete()
                 
                 withContext(Dispatchers.Main) {
-                    onComplete(true, "تم استعادة النسخة الاحتياطية بنجاح!")
+                    onComplete(true, "تم استعادة النسخة الاحتياطية بنجاح! يرجى إعادة تشغيل التطبيق لتحديث القائمة.")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
                     onComplete(false, e.message)
                 }
+            }
+        }
+    }
+
+    fun uploadBackupToTelegram() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val prefs = context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE)
+                val token = prefs.getString("bot_token", "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y") ?: "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y"
+                val channelId = prefs.getString("channel_id", "-1004357014151") ?: "-1004357014151"
+                
+                val dbFile = context.getDatabasePath("tadkeera_db")
+                if (!dbFile.exists()) return@launch
+                
+                // 1. Upload .db file
+                val boundary = "Boundary-" + UUID.randomUUID().toString()
+                val url = URL("https://api.telegram.org/bot$token/sendDocument")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.doOutput = true
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                
+                conn.outputStream.use { out ->
+                    out.write(("--$boundary\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
+                    out.write(("$channelId\r\n").toByteArray())
+                    
+                    out.write(("--$boundary\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
+                    out.write(("ملف قاعدة البيانات المحدث الاحتياطي: tadkeera_db_backup.db\r\n").toByteArray())
+
+                    // Write document file
+                    out.write(("--$boundary\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"tadkeera_db_backup.db\"\r\n").toByteArray())
+                    out.write(("Content-Type: application/octet-stream\r\n\r\n").toByteArray())
+                    out.write(dbFile.readBytes())
+                    out.write(("\r\n").toByteArray())
+
+                    // End boundary
+                    out.write(("--$boundary--\r\n").toByteArray())
+                }
+                conn.responseCode
+                conn.disconnect()
+
+                // 2. Save tickets as JSON file and upload via sendDocument API
+                val eventsList = repository.allEvents.first()
+                val allTickets = mutableListOf<Ticket>()
+                for (e in eventsList) {
+                    allTickets.addAll(repository.getTickets(e.eventId).first())
+                }
+                val syncData = SyncPayload(event = Event(eventName = "نسخ احتياطي شامل", eventDate = System.currentTimeMillis()), tickets = allTickets)
+                
+                val tempFile = File(context.cacheDir, "tadkeera_db_backup.json")
+                val gson = Gson()
+                val jsonString = gson.toJson(syncData)
+                tempFile.writeText(jsonString)
+
+                val boundaryJson = "Boundary-" + UUID.randomUUID().toString()
+                val docUrl = URL("https://api.telegram.org/bot$token/sendDocument")
+                val docConn = docUrl.openConnection() as HttpURLConnection
+                docConn.doOutput = true
+                docConn.requestMethod = "POST"
+                docConn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundaryJson")
+
+                docConn.outputStream.use { out ->
+                    // Write chat_id
+                    out.write(("--$boundaryJson\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
+                    out.write(("$channelId\r\n").toByteArray())
+
+                    // Write caption
+                    out.write(("--$boundaryJson\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
+                    out.write(("ملف بيانات تذاكر المناسبات الاحتياطي الشامل بصيغة JSON\r\n").toByteArray())
+
+                    // Write document file
+                    out.write(("--$boundaryJson\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"${tempFile.name}\"\r\n").toByteArray())
+                    out.write(("Content-Type: application/json\r\n\r\n").toByteArray())
+                    out.write(tempFile.readBytes())
+                    out.write(("\r\n").toByteArray())
+
+                    // End boundary
+                    out.write(("--$boundaryJson--\r\n").toByteArray())
+                }
+                docConn.responseCode
+                docConn.disconnect()
+                tempFile.delete()
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun uploadPdfToTelegram(pdfFile: File, eventName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val prefs = context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE)
+                val token = prefs.getString("bot_token", "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y") ?: "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y"
+                val channelId = prefs.getString("channel_id", "-1004357014151") ?: "-1004357014151"
+
+                val boundary = "Boundary-" + UUID.randomUUID().toString()
+                val docUrl = URL("https://api.telegram.org/bot$token/sendDocument")
+                val docConn = docUrl.openConnection() as HttpURLConnection
+                docConn.doOutput = true
+                docConn.requestMethod = "POST"
+                docConn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+
+                docConn.outputStream.use { out ->
+                    // Write chat_id
+                    out.write(("--$boundary\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
+                    out.write(("$channelId\r\n").toByteArray())
+
+                    // Write caption
+                    out.write(("--$boundary\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
+                    out.write(("تقرير تذاكر مناسبة: $eventName (PDF)\r\n").toByteArray())
+
+                    // Write document file
+                    out.write(("--$boundary\r\n").toByteArray())
+                    out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"${pdfFile.name}\"\r\n").toByteArray())
+                    out.write(("Content-Type: application/pdf\r\n\r\n").toByteArray())
+                    out.write(pdfFile.readBytes())
+                    out.write(("\r\n").toByteArray())
+
+                    // End boundary
+                    out.write(("--$boundary--\r\n").toByteArray())
+                }
+                docConn.responseCode
+                docConn.disconnect()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

@@ -165,5 +165,11 @@ fun TadkeeraApp() {
                 viewModel = viewModel
             )
         }
+        composable("telegram_link") {
+            TelegramLinkScreen(
+                navController = navController,
+                viewModel = viewModel
+            )
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.tadkeera.eventtickets.ui.screens
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -34,6 +35,8 @@ fun BackupSettingsScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    var isRestoringTelegram by remember { mutableStateOf(false) }
+
     // Launcher for DB backup importer
     val restoreFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -42,7 +45,7 @@ fun BackupSettingsScreen(
             val uri = result.data?.data ?: return@rememberLauncherForActivityResult
             viewModel.restoreDatabaseBackup(uri) { success, msg ->
                 if (success) {
-                    Toast.makeText(context, "تم استعادة البيانات بنجاح! الرجاء إعادة تشغيل التطبيق.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "تم استعادة البيانات بنجاح! يرجى إعادة تشغيل التطبيق لتحديث المناسبات.", Toast.LENGTH_LONG).show()
                     navController.popBackStack()
                 } else {
                     Toast.makeText(context, "فشل الاستعادة: $msg", Toast.LENGTH_LONG).show()
@@ -68,7 +71,7 @@ fun BackupSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Modern Elegant Card with subtle gradient for branding
@@ -88,35 +91,51 @@ fun BackupSettingsScreen(
                                 )
                             )
                         )
-                        .padding(28.dp)
+                        .padding(24.dp)
                 ) {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "مركز حماية البيانات والنسخ الاحتياطي",
+                            text = "مركز حماية البيانات والنسخ الاحتياطي 🔒",
                             color = Color.White,
-                            fontSize = 18.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Text(
-                            text = "لضمان أمان تذاكرك وعدم فقدان أي بيانات في حال ضياع الهاتف أو تبديله، يمكنك إنشاء نسخة احتياطية محلية بصيغة (.db) وحفظها بأمان، أو استعادتها بضغطة زر واحدة في أي وقت.",
+                            text = "احمِ بيانات مناسباتك وتذاكرك بالكامل؛ قم بإنشاء واستعادة النسخ الاحتياطية محلياً في مجلد BACKUP بالهاتف، أو اربط تليجرام لمزامنتها سحابياً وتنزيلها بضغطة زر واحدة.",
                             color = Color.White.copy(alpha = 0.85f),
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
-                            lineHeight = 18.sp
+                            lineHeight = 16.sp
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // 1. Create Backup Button
+            // 1. Link Telegram Button (NEW!)
+            Button(
+                onClick = { navController.navigate("telegram_link") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+            ) {
+                Text(
+                    text = "ربط وتأكيد اتصال تليجرام 🔗",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+
+            // 2. Create Backup Button
             Button(
                 onClick = {
                     viewModel.triggerManualBackup { success, msg ->
@@ -129,18 +148,18 @@ fun BackupSettingsScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp),
-                shape = RoundedCornerShape(16.dp),
+                    .height(54.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text(
-                    text = "إنشاء نسخة احتياطية جديدة 💾",
+                    text = "إنشاء نسخة احتياطية جديدة محلياً (.db) 💾",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 15.sp
                 )
             }
 
-            // 2. Restore Backup Button
+            // 3. Restore Backup Button
             Button(
                 onClick = {
                     val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
@@ -151,15 +170,46 @@ fun BackupSettingsScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp),
-                shape = RoundedCornerShape(16.dp),
+                    .height(54.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
                 Text(
-                    text = "استيراد واستعادة نسخة احتياطية 🔄",
+                    text = "استعادة نسخة احتياطية من الهاتف 🔄",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 15.sp
                 )
+            }
+
+            // 4. Restore Backup from Telegram Button (NEW!)
+            if (isRestoringTelegram) {
+                CircularProgressIndicator()
+            } else {
+                Button(
+                    onClick = {
+                        isRestoringTelegram = true
+                        viewModel.restoreBackupFromTelegram { success, msg ->
+                            isRestoringTelegram = false
+                            if (success) {
+                                Toast.makeText(context, msg ?: "تم استعادة البيانات بنجاح!", Toast.LENGTH_LONG).show()
+                                navController.popBackStack()
+                            } else {
+                                Toast.makeText(context, "فشل استعادة البيانات من تليجرام: $msg", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0), contentColor = Color.White)
+                ) {
+                    Text(
+                        text = "استعادة نسخة احتياطية من تليجرام ☁️",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
             }
         }
     }
