@@ -277,6 +277,7 @@ class MainViewModel @Inject constructor(
         eventId: String,
         count: Int,
         design: TicketDesign?,
+        guestNamesList: List<String>? = null,
         onComplete: (File?) -> Unit
     ) {
         withContext(Dispatchers.IO) {
@@ -284,16 +285,16 @@ class MainViewModel @Inject constructor(
                 val event = repository.getEvent(eventId) ?: return@withContext
                 val eventCode = EventCodeGenerator.generateEventCode()
                 
-                // Fetch guest names if enabled
-                val guestNames = repository.getGuestNamesList(eventId).map { it.name }
-                
                 val tickets = mutableListOf<Ticket>()
                 val charPool : List<Char> = ('A'..'Z') + ('0'..'9')
+                
+                val resolvedNames = guestNamesList ?: emptyList()
+                
                 for (i in 1..count) {
                     val qrCode = (1..24)
                         .map { kotlin.random.Random.nextInt(0, charPool.size).let { charPool[it] } }
                         .joinToString("")
-                    val guestName = if (i <= guestNames.size) guestNames[i - 1] else ""
+                    val guestName = if (i <= resolvedNames.size) resolvedNames[i - 1] else ""
                     tickets.add(
                         Ticket(
                             eventId = eventId,

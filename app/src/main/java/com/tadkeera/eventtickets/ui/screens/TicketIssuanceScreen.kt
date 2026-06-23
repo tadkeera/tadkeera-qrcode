@@ -1,11 +1,15 @@
 package com.tadkeera.eventtickets.ui.screens
 
+import android.app.Activity
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -20,12 +24,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.tadkeera.eventtickets.data.entities.TicketDesign
 import com.tadkeera.eventtickets.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.InputStreamReader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +52,40 @@ fun TicketIssuanceScreen(
     val designs by viewModel.getDesignsFlow(eventId).collectAsState(initial = emptyList())
     var selectedDesign by remember { mutableStateOf<TicketDesign?>(null) }
     var isDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Guest Name Injection Settings (NEW!)
+    var showGuestName by remember { mutableStateOf(false) }
+    val guestNamesList = remember { mutableStateListOf<String>() }
+
+    // Launcher for CSV guest names importer
+    val csvPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val uri = result.data?.data ?: return@rememberLauncherForActivityResult
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                if (inputStream != null) {
+                    val reader = com.opencsv.CSVReader(InputStreamReader(inputStream))
+                    val list = mutableListOf<String>()
+                    var nextLine: Array<String>?
+                    while (reader.readNext().also { nextLine = it } != null) {
+                        val name = nextLine?.firstOrNull()?.trim() ?: continue
+                        if (name.isNotEmpty()) {
+                            list.add(name)
+                        }
+                    }
+                    reader.close()
+                    guestNamesList.clear()
+                    guestNamesList.addAll(list)
+                    Toast.makeText(context, "تم قراءة ${list.size} اسم من ملف CSV بنجاح!", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(context, "فشل قراءة ملف CSV: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     // Fetch already generated batches/codes by grouping tickets
     val tickets by viewModel.getTicketsFlow(eventId).collectAsState(initial = emptyList())
@@ -148,6 +188,67 @@ fun TicketIssuanceScreen(
                 }
             }
 
+            // Guest Name Switch (Moved from Design screen to here!)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("إظهار أسماء الضيوف وطباعتها", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("قم بتفعيل هذا الخيار لرفع قائمة بالأسماء ودمجها تلقائياً مع التذاكر الصادرة.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = showGuestName,
+                        onCheckedChange = { showGuestName = it }
+                    )
+                }
+            }
+
+            // CSV Upload Button
+            if (showGuestName) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                                type = "text/*"
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                            }
+                            csvPickerLauncher.launch(intent)
+                        },
+                        modifier = Modifier.weight(1.5f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Text("رفع ملف أسماء الضيوف CSV")
+                    }
+
+                    if (guestNamesList.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFF2E7D32), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "مستورد: ${guestNamesList.size} اسم",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             // Action Button
             if (isGenerating) {
                 var dotCount by remember { mutableStateOf(1) }
@@ -176,12 +277,14 @@ fun TicketIssuanceScreen(
                         }
                         isGenerating = true
                         coroutineScope.launch {
-                            viewModel.issueTickets(eventId, count, selectedDesign) { file ->
+                            // Inject names list only if switch is enabled!
+                            val finalNames = if (showGuestName) guestNamesList else null
+                            viewModel.issueTickets(eventId, count, selectedDesign, finalNames) { file ->
                                 isGenerating = false
                                 if (file != null) {
                                     Toast.makeText(context, "تم حفظ التذاكر بملف PDF داخلي بنجاح! حملها للذاكرة من الأسفل.", Toast.LENGTH_LONG).show()
                                 } else {
-                                    Toast.makeText(context, "فشل إصدار التذاكر، يرجى المحاولة لاحقاً", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "فشل إصدار التذاكر، يرجى المحاولة لاحقاً", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
@@ -219,63 +322,65 @@ fun TicketIssuanceScreen(
                         val eventCode = batch.first
                         val ticketCount = batch.second
                         
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                        val internalFile = viewModel.getInternalPdfFile(eventCode)
+                        if (internalFile.exists()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("كود الملف: $eventCode.pdf", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                                    Text("العدد: $ticketCount تذكرة مدمجة", style = MaterialTheme.typography.bodySmall)
-                                }
-
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    // 1. Share Button
-                                    Button(
-                                        onClick = {
-                                            val internalFile = viewModel.getInternalPdfFile(eventCode)
-                                            if (internalFile.exists()) {
-                                                val uri = FileProvider.getUriForFile(
-                                                    context,
-                                                    "${context.packageName}.fileprovider",
-                                                    internalFile
-                                                )
-                                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                                    type = "application/pdf"
-                                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                }
-                                                context.startActivity(Intent.createChooser(intent, "مشاركة الملف"))
-                                            } else {
-                                                Toast.makeText(context, "الملف الداخلي غير موجود", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                                        modifier = Modifier.padding(horizontal = 2.dp)
-                                    ) {
-                                        Text("مشاركة")
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("كود الملف: $eventCode.pdf", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                                        Text("العدد: $ticketCount تذكرة مدمجة", style = MaterialTheme.typography.bodySmall)
                                     }
 
-                                    // 2. Download Button
-                                    Button(
-                                        onClick = {
-                                            viewModel.downloadPdfToSharedStorage(eventCode, event?.eventName ?: "مناسبة") { success, file ->
-                                                if (success && file != null) {
-                                                    Toast.makeText(context, "تم تحميل الملف بنجاح إلى: Tadkeera/${event?.eventName}/${eventCode}.pdf", Toast.LENGTH_LONG).show()
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        // 1. Share Button
+                                        Button(
+                                            onClick = {
+                                                if (internalFile.exists()) {
+                                                    val uri = FileProvider.getUriForFile(
+                                                        context,
+                                                        "${context.packageName}.fileprovider",
+                                                        internalFile
+                                                    )
+                                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "application/pdf"
+                                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    context.startActivity(Intent.createChooser(intent, "مشاركة الملف"))
                                                 } else {
-                                                    Toast.makeText(context, "فشل تحميل الملف، يرجى التحقق من صلاحيات التخزين", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, "الملف الداخلي غير موجود", Toast.LENGTH_SHORT).show()
                                                 }
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                    ) {
-                                        Text("تحميل")
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                            modifier = Modifier.padding(horizontal = 2.dp)
+                                        ) {
+                                            Text("مشاركة")
+                                        }
+
+                                        // 2. Download Button
+                                        Button(
+                                            onClick = {
+                                                viewModel.downloadPdfToSharedStorage(eventCode, event?.eventName ?: "مناسبة") { success, file ->
+                                                    if (success && file != null) {
+                                                        Toast.makeText(context, "تم تحميل الملف بنجاح إلى: Tadkeera/${event?.eventName}/${eventCode}.pdf", Toast.LENGTH_LONG).show()
+                                                    } else {
+                                                        Toast.makeText(context, "فشل تحميل الملف، يرجى التحقق من صلاحيات التخزين", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                        ) {
+                                            Text("تحميل")
+                                        }
                                     }
                                 }
                             }
