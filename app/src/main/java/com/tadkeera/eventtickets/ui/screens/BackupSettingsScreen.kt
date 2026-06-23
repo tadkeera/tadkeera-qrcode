@@ -183,7 +183,20 @@ fun BackupSettingsScreen(
 
             // 4. Restore Backup from Telegram Button (NEW!)
             if (isRestoringTelegram) {
-                CircularProgressIndicator()
+                var pulse by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        pulse = !pulse
+                        kotlinx.coroutines.delay(600)
+                    }
+                }
+                Text(
+                    text = "جاري استعادة البيانات من سحابة تليجرام... 📥",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = if (pulse) MaterialTheme.colorScheme.primary else Color.Gray,
+                    textAlign = TextAlign.Center
+                )
             } else {
                 Button(
                     onClick = {

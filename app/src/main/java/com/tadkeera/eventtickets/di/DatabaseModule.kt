@@ -22,7 +22,10 @@ object DatabaseModule {
             context,
             TadkeeraDatabase::class.java,
             "tadkeera_db"
-        ).fallbackToDestructiveMigration().build()
+        )
+        .setJournalMode(androidx.room.RoomDatabase.JournalMode.TRUNCATE)
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
     @Provides
