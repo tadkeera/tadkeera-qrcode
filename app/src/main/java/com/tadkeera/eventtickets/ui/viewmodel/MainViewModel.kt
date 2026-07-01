@@ -443,9 +443,12 @@ class MainViewModel @Inject constructor(
         val bounds = android.graphics.RectF()
         textPath.computeBounds(bounds, true)
         
+        val region = android.graphics.Region()
+        region.setPath(textPath, android.graphics.Region(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt()))
+        
         for (x in bounds.left.toInt() .. bounds.right.toInt() step 2) {
             for (y in bounds.top.toInt() .. bounds.bottom.toInt() step 2) {
-                if (textPath.contains(x.toFloat(), y.toFloat())) {
+                if (region.contains(x, y)) {
                     canvas.drawCircle(x.toFloat(), y.toFloat(), 0.9f, paintDot)
                 }
             }
