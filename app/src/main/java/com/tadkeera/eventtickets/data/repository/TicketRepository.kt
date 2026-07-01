@@ -11,7 +11,8 @@ class TicketRepository @Inject constructor(
     private val eventDao: EventDao,
     private val ticketDao: TicketDao,
     private val designDao: TicketDesignDao,
-    private val guestDao: GuestNameDao
+    private val guestDao: GuestNameDao,
+    private val syncQueueDao: SyncQueueDao
 ) {
     val allEvents: Flow<List<Event>> = eventDao.getAllEvents()
 
@@ -45,4 +46,9 @@ class TicketRepository @Inject constructor(
         val scanned = ticketDao.getScannedTickets(eventId)
         return Pair(total, scanned)
     }
+
+    // WorkManager / Sync Queue helpers
+    suspend fun getQueueItems(): List<SyncQueueItem> = syncQueueDao.getQueueItems()
+    suspend fun enqueueItem(item: SyncQueueItem) = syncQueueDao.enqueue(item)
+    suspend fun dequeueItem(item: SyncQueueItem) = syncQueueDao.dequeue(item)
 }

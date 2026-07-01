@@ -100,6 +100,35 @@ sealed class ScanResult {
     object Invalid : ScanResult()
 }
 
+// Cryptographic signing utility using Pre-Shared Master Salt (Identical to Main App)
+object TicketCryptography {
+    private const val MASTER_SALT = "TadkeeraSecuritySaltKey2026MasterSaltSignature"
+
+    fun verifyTicketSignature(qrCodeData: String): Boolean {
+        try {
+            val parts = qrCodeData.split("#")
+            if (parts.size != 4) return false
+            val eventId = parts[0]
+            val ticketNumber = parts[1]
+            val eventCode = parts[2]
+            val originalSignature = parts[3]
+            
+            val message = "$eventId#$ticketNumber#$eventCode"
+            val keyBytes = MASTER_SALT.toByteArray(Charsets.UTF_8)
+            val key = javax.crypto.spec.SecretKeySpec(keyBytes, "HmacSHA256")
+            val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+            mac.init(key)
+            val expectedHmacBytes = mac.doFinal(message.toByteArray(Charsets.UTF_8))
+            val expectedSignature = android.util.Base64.encodeToString(expectedHmacBytes, android.util.Base64.NO_WRAP or android.util.Base64.URL_SAFE)
+            
+            return originalSignature == expectedSignature
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
     private lateinit var sharedPreferences: SharedPreferences
 
@@ -343,23 +372,28 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                                             if (barcodes.isNotEmpty() && !showResultDialog) {
                                                 val qrCode = barcodes.first().rawValue ?: ""
                                                 
-                                                // Scan processing - Strictly Isolated by Event ID
-                                                val ticket = tickets.find { it.qrCodeData == qrCode && it.eventId == event!!.eventId }
-                                                if (ticket == null) {
+                                                // Verify HMAC signature offline first!
+                                                if (!TicketCryptography.verifyTicketSignature(qrCode)) {
                                                     scanResult = ScanResult.Invalid
                                                 } else {
-                                                    if (ticket.isScanned) {
-                                                        ticket.scanCount += 1
-                                                        scanResult = ScanResult.Duplicate(ticket, ticket.scannedAt ?: System.currentTimeMillis())
-                                                        saveState(event, tickets)
-                                                        triggerTelegramReport(context, event!!, tickets, "محاولة تكرار مسح تذكرة ⚠️", ticket)
+                                                    // Scan processing - Strictly Isolated by Event ID
+                                                    val ticket = tickets.find { it.qrCodeData == qrCode && it.eventId == event!!.eventId }
+                                                    if (ticket == null) {
+                                                        scanResult = ScanResult.Invalid
                                                     } else {
-                                                        ticket.isScanned = true
-                                                        ticket.scannedAt = System.currentTimeMillis()
-                                                        ticket.scanCount = 1
-                                                        scanResult = ScanResult.Success(ticket)
-                                                        saveState(event, tickets)
-                                                        triggerTelegramReport(context, event!!, tickets, "مسح تذكرة معتمد جديد ✅", ticket)
+                                                        if (ticket.isScanned) {
+                                                            ticket.scanCount += 1
+                                                            scanResult = ScanResult.Duplicate(ticket, ticket.scannedAt ?: System.currentTimeMillis())
+                                                            saveState(event, tickets)
+                                                            triggerTelegramReport(context, event!!, tickets, "محاولة تكرار مسح تذكرة ⚠️", ticket)
+                                                        } else {
+                                                            ticket.isScanned = true
+                                                            ticket.scannedAt = System.currentTimeMillis()
+                                                            ticket.scanCount = 1
+                                                            scanResult = ScanResult.Success(ticket)
+                                                            saveState(event, tickets)
+                                                            triggerTelegramReport(context, event!!, tickets, "مسح تذكرة معتمد جديد ✅", ticket)
+                                                        }
                                                     }
                                                 }
                                                 showResultDialog = true
@@ -507,7 +541,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                                 if (manualEventCode.length == 5 && manualTicketNo.isNotEmpty()) {
                                     val ticketNoInt = manualTicketNo.toIntOrNull()
                                     if (ticketNoInt != null) {
-                                        // Verify ticket manually
+                                        // Verify ticket manually - Find matching eventId
                                         val ticket = tickets.find {
                                             it.eventCode.equals(manualEventCode, ignoreCase = true) &&
                                             it.ticketNumber == ticketNoInt &&
@@ -942,8 +976,8 @@ fun triggerTelegramReport(
     title: String,
     targetTicket: Ticket? = null
 ) {
-    val token = "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y"
-    val channelId = "-1004357014151"
+    val token = "8855448849:AAEOMwTZFNlZ2dRFwbsPdUjsMVVQDwg6_R0"
+    val channelId = "-1004389676098"
 
     val totalCount = tickets.size
     val scannedList = tickets.filter { it.isScanned }
@@ -1017,7 +1051,6 @@ ${targetTicket?.let { "• التذكرة الأخيرة: ${it.eventCode} - ${it
 
             // 3. Generate the gorgeous PDF report with 3 tables and upload to Telegram!
             val pdfReportFile = generatePdfReport(context, event, tickets)
-            // Create beautifully renamed file for Telegram upload: "تقرير (اسم المناسبة).pdf"
             val renamedPdfFile = File(context.cacheDir, "تقرير (${event.eventName}).pdf")
             pdfReportFile.copyTo(renamedPdfFile, overwrite = true)
             

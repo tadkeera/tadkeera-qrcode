@@ -24,6 +24,7 @@ object DatabaseModule {
             "tadkeera_db"
         )
         .setJournalMode(androidx.room.RoomDatabase.JournalMode.TRUNCATE)
+        .addMigrations(com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_4_5)
         .fallbackToDestructiveMigration()
         .build()
     }
@@ -39,4 +40,7 @@ object DatabaseModule {
 
     @Provides
     fun provideGuestNameDao(db: TadkeeraDatabase): GuestNameDao = db.guestNameDao()
+
+    @Provides
+    fun provideSyncQueueDao(db: TadkeeraDatabase): SyncQueueDao = db.syncQueueDao()
 }

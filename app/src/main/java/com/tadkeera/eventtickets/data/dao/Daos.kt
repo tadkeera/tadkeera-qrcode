@@ -5,6 +5,7 @@ import com.tadkeera.eventtickets.data.entities.Event
 import com.tadkeera.eventtickets.data.entities.GuestName
 import com.tadkeera.eventtickets.data.entities.Ticket
 import com.tadkeera.eventtickets.data.entities.TicketDesign
+import com.tadkeera.eventtickets.data.entities.SyncQueueItem
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -80,4 +81,16 @@ interface GuestNameDao {
 
     @Query("DELETE FROM guest_names WHERE eventId = :eventId")
     suspend fun deleteGuestNamesByEventId(eventId: String)
+}
+
+@Dao
+interface SyncQueueDao {
+    @Query("SELECT * FROM sync_queue ORDER BY timestamp ASC")
+    suspend fun getQueueItems(): List<SyncQueueItem>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun enqueue(item: SyncQueueItem)
+
+    @Delete
+    suspend fun dequeue(item: SyncQueueItem)
 }

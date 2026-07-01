@@ -19,7 +19,7 @@ data class Ticket(
     val eventId: String,
     val eventCode: String,
     val ticketNumber: Int,
-    val qrCodeData: String, // 24-char unique code
+    val qrCodeData: String, // 24-char unique code or Signed Cryptographic Token
     val guestName: String = "",
     val issuedAt: Long = System.currentTimeMillis(),
     var isScanned: Boolean = false,
@@ -46,16 +46,11 @@ data class TicketDesign(
     val guestNameSize: Float,
     val showGuestName: Boolean,
     val isDefault: Boolean = false,
-    val eventCodeColor: String = "#C62828",
-    val guestNameColor: String = "#2E7D32",
-    val guestNameFont: String = "arial.ttf",
-    // New fields for absolute positioning and font weights!
-    val eventCodeWidth: Float = 0.3f,
-    val eventCodeHeight: Float = 0.08f,
-    val guestNameWidth: Float = 0.4f,
-    val guestNameHeight: Float = 0.08f,
-    val eventCodeWeight: String = "bold", // normal, bold, extrabold
-    val guestNameWeight: String = "bold"  // normal, bold, extrabold
+    val eventCodeColor: String = "#C62828", // default Red
+    val guestNameColor: String = "#2E7D32", // default Green
+    val guestNameFont: String = "arial.ttf", // default Amiri
+    val eventCodeWeight: String = "bold",
+    val guestNameWeight: String = "bold"
 )
 
 @Entity(tableName = "guest_names")
@@ -64,4 +59,15 @@ data class GuestName(
     val eventId: String,
     val name: String,
     val isUsed: Boolean = false
+)
+
+@Entity(tableName = "sync_queue")
+data class SyncQueueItem(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val type: String, // "backup" or "pdf" or "scan"
+    val filePath: String = "",
+    val eventName: String = "",
+    val title: String = "",
+    val qrCodeData: String = "",
+    val timestamp: Long = System.currentTimeMillis()
 )

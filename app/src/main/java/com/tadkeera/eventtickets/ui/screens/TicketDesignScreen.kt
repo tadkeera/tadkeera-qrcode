@@ -117,7 +117,7 @@ fun TicketDesignScreen(
     var qrW by remember { mutableStateOf(0.2f) }
     var qrH by remember { mutableStateOf(0.2f) }
     var qrCodeRotation by remember { mutableStateOf(0f) }
-    var isQrActive by remember { mutableStateOf(false) }
+    var isQrActive by remember { mutableStateOf(true) }
 
     // Event Code Settings
     var codeX by remember { mutableStateOf(0.1f) }
@@ -127,7 +127,7 @@ fun TicketDesignScreen(
     var codeSize by remember { mutableStateOf(1.0f) }
     var codeColorHex by remember { mutableStateOf("#C62828") } // Default Classic Red
     var codeWeight by remember { mutableStateOf("bold") } // normal, bold, extrabold
-    var isCodeActive by remember { mutableStateOf(false) }
+    var isCodeActive by remember { mutableStateOf(true) }
 
     // Guest Name Settings
     var guestX by remember { mutableStateOf(0.1f) }
@@ -136,9 +136,9 @@ fun TicketDesignScreen(
     var guestH by remember { mutableStateOf(0.08f) }
     var guestSize by remember { mutableStateOf(1.0f) }
     var guestColorHex by remember { mutableStateOf("#2E7D32") } // Default Emerald Green
-    var guestFontOption by remember { mutableStateOf(DISPLAY_FONTS[15]) } // Default Alarabiya (index 15 is Alarabiya)
+    var guestFontOption by remember { mutableStateOf(DISPLAY_FONTS[15]) } // Default Alarabiya
     var guestWeight by remember { mutableStateOf("bold") } // normal, bold, extrabold
-    var isGuestActive by remember { mutableStateOf(false) }
+    var isGuestActive by remember { mutableStateOf(true) }
 
     var fontDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -184,17 +184,6 @@ fun TicketDesignScreen(
         }
     }
 
-    // Launcher for CSV picker
-    val csvPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val uri = result.data?.data ?: return@rememberLauncherForActivityResult
-            viewModel.uploadCSV(eventId, uri)
-            Toast.makeText(context, "تم رفع أسماء الضيوف وبدء المعالجة", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -216,45 +205,6 @@ fun TicketDesignScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Guest Name Toggle
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("إظهار اسم الضيف في التذكرة", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("قم بتفعيل هذا الخيار لتمكين رفع وقراءة أسماء المدعوين من ملف CSV وطباعتها على التذاكر.", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Switch(
-                        checked = showGuestName,
-                        onCheckedChange = { showGuestName = it }
-                    )
-                }
-            }
-
-            // CSV Upload Button
-            if (showGuestName) {
-                Button(
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                            type = "text/*"
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                        }
-                        csvPickerLauncher.launch(intent)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("رفع ملف أسماء الضيوف CSV")
-                }
-            }
-
             // PDF Template Upload Button
             Button(
                 onClick = {
@@ -272,6 +222,10 @@ fun TicketDesignScreen(
 
             // PDF Editor / Workspace
             pdfBitmap?.let { bitmap ->
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val containerWidthDp = with(density) { containerWidth.toDp() }
+                val containerHeightDp = with(density) { containerHeight.toDp() }
+
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -281,40 +235,6 @@ fun TicketDesignScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
-
-                    // Toolbar for Elements activation
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FilterChip(
-                            selected = isQrActive,
-                            onClick = { 
-                                isQrActive = !isQrActive
-                                activeElement = if (isQrActive) SelectedElement.QR_CODE else SelectedElement.NONE
-                            },
-                            label = { Text("إضافة QR CODE") }
-                        )
-                        FilterChip(
-                            selected = isCodeActive,
-                            onClick = { 
-                                isCodeActive = !isCodeActive
-                                activeElement = if (isCodeActive) SelectedElement.EVENT_CODE else SelectedElement.NONE
-                            },
-                            label = { Text("زر الكود والرقم") }
-                        )
-                        if (showGuestName) {
-                            FilterChip(
-                                selected = isGuestActive,
-                                onClick = { 
-                                    isGuestActive = !isGuestActive
-                                    activeElement = if (isGuestActive) SelectedElement.GUEST_NAME else SelectedElement.NONE
-                                },
-                                label = { Text("زر اسم الضيف") }
-                            )
-                        }
-                    }
 
                     // Advanced Styling Editor for selected elements
                     if (activeElement != SelectedElement.NONE) {
@@ -553,8 +473,8 @@ fun TicketDesignScreen(
                                         )
                                     }
                                     .size(
-                                        width = (qrW * containerWidth / 2.62f).dp,
-                                        height = (qrH * containerHeight / 2.62f).dp
+                                        width = containerWidthDp * qrW,
+                                        height = containerHeightDp * qrH
                                     )
                                     .rotate(qrCodeRotation)
                                     .border(
@@ -684,7 +604,7 @@ fun TicketDesignScreen(
                             }
                         }
 
-                        // 2. Draggable Event Code overlay
+                        // 2. Draggable Event Code overlay - Live WYSIWYG Styling Preview!
                         if (isCodeActive) {
                             Box(
                                 modifier = Modifier
@@ -695,8 +615,8 @@ fun TicketDesignScreen(
                                         )
                                     }
                                     .size(
-                                        width = (codeW * containerWidth / 2.62f).dp,
-                                        height = (codeH * containerHeight / 2.62f).dp
+                                        width = containerWidthDp * codeW,
+                                        height = containerHeightDp * codeH
                                     )
                                     .border(
                                         width = if (activeElement == SelectedElement.EVENT_CODE) 3.dp else 2.dp,
@@ -751,7 +671,7 @@ fun TicketDesignScreen(
                             }
                         }
 
-                        // 3. Draggable Guest Name overlay
+                        // 3. Draggable Guest Name overlay - Live WYSIWYG Font & Styling Preview!
                         if (isGuestActive && showGuestName) {
                             Box(
                                 modifier = Modifier
@@ -762,8 +682,8 @@ fun TicketDesignScreen(
                                         )
                                     }
                                     .size(
-                                        width = (guestW * containerWidth / 2.62f).dp,
-                                        height = (guestH * containerHeight / 2.62f).dp
+                                        width = containerWidthDp * guestW,
+                                        height = containerHeightDp * guestH
                                     )
                                     .border(
                                         width = if (activeElement == SelectedElement.GUEST_NAME) 3.dp else 2.dp,
@@ -789,10 +709,23 @@ fun TicketDesignScreen(
                                     "bold" -> FontWeight.Bold
                                     else -> FontWeight.Normal
                                 }
+                                val customFontFamily = remember(guestFontOption) {
+                                    try {
+                                        androidx.compose.ui.text.font.FontFamily(
+                                            androidx.compose.ui.text.font.Font(
+                                                path = "fonts/${guestFontOption.fileName}",
+                                                assetManager = context.assets
+                                            )
+                                        )
+                                    } catch (e: Exception) {
+                                        androidx.compose.ui.text.font.FontFamily.Default
+                                    }
+                                }
                                 Text(
                                     "ياسر ربيع طيب",
                                     fontSize = (12 * guestSize).sp,
                                     fontWeight = styleWeight,
+                                    fontFamily = customFontFamily,
                                     color = parsedColor
                                 )
 
@@ -956,10 +889,23 @@ fun TicketDesignScreen(
                                         "bold" -> FontWeight.Bold
                                         else -> FontWeight.Normal
                                     }
+                                    val customFontFamily = remember(guestFontOption) {
+                                        try {
+                                            androidx.compose.ui.text.font.FontFamily(
+                                                androidx.compose.ui.text.font.Font(
+                                                    path = "fonts/${guestFontOption.fileName}",
+                                                    assetManager = context.assets
+                                                )
+                                            )
+                                        } catch (e: Exception) {
+                                            androidx.compose.ui.text.font.FontFamily.Default
+                                        }
+                                    }
                                     Text(
                                         "ياسر ربيع طيب",
                                         fontSize = (12 * guestSize).sp,
                                         fontWeight = styleWeight,
+                                        fontFamily = customFontFamily,
                                         color = parsedColor
                                     )
                                 }

@@ -20,6 +20,7 @@ import com.tadkeera.eventtickets.data.entities.Event
 import com.tadkeera.eventtickets.data.entities.GuestName
 import com.tadkeera.eventtickets.data.entities.Ticket
 import com.tadkeera.eventtickets.data.entities.TicketDesign
+import com.tadkeera.eventtickets.data.entities.SyncQueueItem
 import com.tadkeera.eventtickets.data.repository.TicketRepository
 import com.tadkeera.eventtickets.util.EventCodeGenerator
 import com.tadkeera.eventtickets.util.QRCodeGenerator
@@ -39,6 +40,12 @@ import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
+import javax.crypto.KeyGenerator
+import javax.crypto.Mac
+import javax.crypto.SecretKey
+import java.security.KeyStore
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 
 sealed class ScanResult {
     object Idle : ScanResult()
@@ -51,6 +58,62 @@ data class SyncPayload(
     val event: Event,
     val tickets: List<Ticket>
 )
+
+// Cryptographic signing utility using Android Keystore
+object TicketCryptography {
+    private const val KEY_ALIAS = "TadkeeraKeyAlias"
+    private const val ANDROID_KEYSTORE = "AndroidKeyStore"
+
+    fun getOrCreateSecretKey(): SecretKey {
+        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
+        keyStore.load(null)
+        if (keyStore.containsAlias(KEY_ALIAS)) {
+            val entry = keyStore.getEntry(KEY_ALIAS, null) as KeyStore.SecretKeyEntry
+            return entry.secretKey
+        } else {
+            val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, ANDROID_KEYSTORE)
+            keyGenerator.init(
+                KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
+                    .build()
+            )
+            return keyGenerator.generateKey()
+        }
+    }
+
+    fun signTicket(eventId: String, ticketNumber: Int, eventCode: String): String {
+        val message = "$eventId#$ticketNumber#$eventCode"
+        val key = getOrCreateSecretKey()
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(key)
+        val hmacBytes = mac.doFinal(message.toByteArray(Charsets.UTF_8))
+        
+        val b64 = android.util.Base64.encodeToString(hmacBytes, android.util.Base64.NO_WRAP or android.util.Base64.URL_SAFE)
+        return "$message#$b64"
+    }
+
+    fun verifyTicketSignature(qrCodeData: String): Boolean {
+        try {
+            val parts = qrCodeData.split("#")
+            if (parts.size != 4) return false
+            val eventId = parts[0]
+            val ticketNumber = parts[1]
+            val eventCode = parts[2]
+            val originalSignature = parts[3]
+            
+            val message = "$eventId#$ticketNumber#$eventCode"
+            val key = getOrCreateSecretKey()
+            val mac = Mac.getInstance("HmacSHA256")
+            mac.init(key)
+            val expectedHmacBytes = mac.doFinal(message.toByteArray(Charsets.UTF_8))
+            val expectedSignature = android.util.Base64.encodeToString(expectedHmacBytes, android.util.Base64.NO_WRAP or android.util.Base64.URL_SAFE)
+            
+            return originalSignature == expectedSignature
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        }
+    }
+}
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -68,6 +131,7 @@ class MainViewModel @Inject constructor(
     init {
         // Run database backup automatically when the app is opened
         backupDatabase()
+        processOfflineQueue()
     }
 
     fun resetScanResult() {
@@ -194,9 +258,15 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Ticket scanner - Isolated by Event ID
+    // Ticket scanner - Isolated by Event ID with Cryptographic Signature Check!
     fun scanTicket(eventId: String, qrCodeData: String) {
         viewModelScope.launch {
+            // Verify HMAC signature first!
+            if (!TicketCryptography.verifyTicketSignature(qrCodeData)) {
+                _scanResult.value = ScanResult.Invalid
+                return@launch
+            }
+
             val ticket = repository.getTicketByQR(qrCodeData)
             if (ticket == null || ticket.eventId != eventId) {
                 _scanResult.value = ScanResult.Invalid
@@ -286,21 +356,19 @@ class MainViewModel @Inject constructor(
                 val eventCode = EventCodeGenerator.generateEventCode()
                 
                 val tickets = mutableListOf<Ticket>()
-                val charPool : List<Char> = ('A'..'Z') + ('0'..'9')
                 
                 val resolvedNames = guestNamesList ?: emptyList()
                 
                 for (i in 1..count) {
-                    val qrCode = (1..24)
-                        .map { kotlin.random.Random.nextInt(0, charPool.size).let { charPool[it] } }
-                        .joinToString("")
+                    // Generate securely signed cryptographic QR Code!
+                    val qrCodeData = TicketCryptography.signTicket(eventId, i, eventCode)
                     val guestName = if (i <= resolvedNames.size) resolvedNames[i - 1] else ""
                     tickets.add(
                         Ticket(
                             eventId = eventId,
                             eventCode = eventCode,
                             ticketNumber = i,
-                            qrCodeData = qrCode,
+                            qrCodeData = qrCodeData,
                             guestName = guestName
                         )
                     )
@@ -347,6 +415,43 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    private fun drawVoidPantograph(canvas: android.graphics.Canvas, width: Int, height: Int) {
+        val paintDot = android.graphics.Paint().apply {
+            color = android.graphics.Color.argb(45, 120, 120, 120) // Extremely faint, soft gray dots
+            style = android.graphics.Paint.Style.FILL
+        }
+        
+        // 1. Draw background fine micro-dots (10% density grid)
+        val step = 4
+        for (x in 0 until width step step) {
+            for (y in 0 until height step step) {
+                canvas.drawCircle(x.toFloat(), y.toFloat(), 0.5f, paintDot)
+            }
+        }
+        
+        // 2. Draw the hidden word "نسخة VOID" using a denser mesh of dots!
+        val textPaint = android.graphics.Paint().apply {
+            textSize = 28f
+            color = android.graphics.Color.GRAY
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        }
+        
+        val textPath = android.graphics.Path()
+        textPaint.getTextPath("نسخة VOID", 0, 10, width / 2f, height / 2f + 10f, textPath)
+        
+        val bounds = android.graphics.RectF()
+        textPath.computeBounds(bounds, true)
+        
+        for (x in bounds.left.toInt() .. bounds.right.toInt() step 2) {
+            for (y in bounds.top.toInt() .. bounds.bottom.toInt() step 2) {
+                if (textPath.contains(x.toFloat(), y.toFloat())) {
+                    canvas.drawCircle(x.toFloat(), y.toFloat(), 0.9f, paintDot)
+                }
+            }
+        }
+    }
+
     private fun generateQRCodeImage(text: String, width: Int = 150, height: Int = 150): Image {
         val hints = java.util.HashMap<com.google.zxing.EncodeHintType, Any>()
         hints[com.google.zxing.EncodeHintType.MARGIN] = 0 // Remove white quiet zone margins!
@@ -361,11 +466,20 @@ class MainViewModel @Inject constructor(
         
         val baos = ByteArrayOutputStream()
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        
+        // Draw the digital anti-forgery Void Pantograph on the background!
+        drawVoidPantograph(canvas, width, height)
+        
+        // Overlay the black QR matrix blocks
         for (x in 0 until width) {
             for (y in 0 until height) {
-                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.TRANSPARENT)
+                if (bitMatrix.get(x, y)) {
+                    bitmap.setPixel(x, y, android.graphics.Color.BLACK)
+                }
             }
         }
+        
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
         bitmap.recycle() // Recycle immediately to free memory!
         
@@ -416,7 +530,9 @@ class MainViewModel @Inject constructor(
         
         val bitmap = Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
-        canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+        
+        // Draw Void Pantograph under the guest name text to secure it as well!
+        drawVoidPantograph(canvas, bmpW, bmpH)
         
         paint.textAlign = android.graphics.Paint.Align.LEFT
         val x = paddingX.toFloat()
@@ -760,6 +876,18 @@ class MainViewModel @Inject constructor(
     fun restoreDatabaseBackup(uri: Uri, onComplete: (Boolean, String?) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Verify magic SQLite header to prevent database corruption / event deletion!
+                val inputStreamCheck = context.contentResolver.openInputStream(uri) ?: throw Exception("Failed to open stream")
+                val headerBytes = ByteArray(16)
+                val readBytesCount = inputStreamCheck.use { it.read(headerBytes) }
+                
+                if (readBytesCount < 16 || !headerBytes.sliceArray(0..14).contentEquals("SQLite format 3".toByteArray(Charsets.US_ASCII))) {
+                    withContext(Dispatchers.Main) {
+                        onComplete(false, "الملف المختار ليس ملف قاعدة بيانات تذكرة صالح! تم إلغاء الاستعادة لحماية بياناتك.")
+                    }
+                    return@launch
+                }
+
                 // Close database cleanly first!
                 database.close()
                 
@@ -790,91 +918,121 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // WorkManager / Local Outbox Queue implementation
+    fun processOfflineQueue() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val items = repository.getQueueItems()
+                if (items.isEmpty()) return@launch
+                
+                for (item in items) {
+                    // Try uploading each item based on its type
+                    val success = when (item.type) {
+                        "backup" -> uploadBackupDirect()
+                        "pdf" -> uploadPdfDirect(File(item.filePath), item.eventName)
+                        else -> true
+                    }
+                    if (success) {
+                        repository.dequeueItem(item)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private suspend fun uploadBackupDirect(): Boolean {
+        // Direct upload helper returning true/false
+        return try {
+            val prefs = context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE)
+            val token = prefs.getString("bot_token", "8855448849:AAEOMwTZFNlZ2dRFwbsPdUjsMVVQDwg6_R0") ?: "8855448849:AAEOMwTZFNlZ2dRFwbsPdUjsMVVQDwg6_R0"
+            val channelId = prefs.getString("channel_id", "-1004389676098") ?: "-1004389676098"
+            
+            val dbFile = context.getDatabasePath("tadkeera_db")
+            if (!dbFile.exists()) return true
+            
+            val boundary = "Boundary-" + UUID.randomUUID().toString()
+            val url = URL("https://api.telegram.org/bot$token/sendDocument")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.doOutput = true
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            
+            conn.outputStream.use { out ->
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
+                out.write(("$channelId\r\n").toByteArray())
+                
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
+                out.write(("نسخة احتياطية لقاعدة البيانات الكلية للموقع (.db)\r\n").toByteArray())
+                
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"tadkeera_db_backup.db\"\r\n").toByteArray())
+                out.write(("Content-Type: application/octet-stream\r\n\r\n").toByteArray())
+                out.write(dbFile.readBytes())
+                out.write(("\r\n").toByteArray())
+                out.write(("--$boundary--\r\n").toByteArray())
+            }
+            val code = conn.responseCode
+            conn.disconnect()
+            code == 200
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private suspend fun uploadPdfDirect(pdfFile: File, eventName: String): Boolean {
+        if (!pdfFile.exists()) return true
+        return try {
+            val prefs = context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE)
+            val token = prefs.getString("bot_token", "8855448849:AAEOMwTZFNlZ2dRFwbsPdUjsMVVQDwg6_R0") ?: "8855448849:AAEOMwTZFNlZ2dRFwbsPdUjsMVVQDwg6_R0"
+            val channelId = prefs.getString("channel_id", "-1004389676098") ?: "-1004389676098"
+
+            val boundary = "Boundary-" + UUID.randomUUID().toString()
+            val docUrl = URL("https://api.telegram.org/bot$token/sendDocument")
+            val docConn = docUrl.openConnection() as HttpURLConnection
+            docConn.doOutput = true
+            docConn.requestMethod = "POST"
+            docConn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+
+            docConn.outputStream.use { out ->
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
+                out.write(("$channelId\r\n").toByteArray())
+
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
+                out.write(("تقرير تذاكر مناسبة: $eventName (PDF)\r\n").toByteArray())
+
+                out.write(("--$boundary\r\n").toByteArray())
+                out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"${pdfFile.name}\"\r\n").toByteArray())
+                out.write(("Content-Type: application/pdf\r\n\r\n").toByteArray())
+                out.write(pdfFile.readBytes())
+                out.write(("\r\n").toByteArray())
+
+                out.write(("--$boundary--\r\n").toByteArray())
+            }
+            val code = docConn.responseCode
+            docConn.disconnect()
+            code == 200
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun uploadBackupToTelegram() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val prefs = context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE)
-                val token = prefs.getString("bot_token", "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y") ?: "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y"
-                val channelId = prefs.getString("channel_id", "-1004357014151") ?: "-1004357014151"
-                
                 val dbFile = context.getDatabasePath("tadkeera_db")
                 if (!dbFile.exists()) return@launch
                 
-                // 1. Upload .db file
-                val boundary = "Boundary-" + UUID.randomUUID().toString()
-                val url = URL("https://api.telegram.org/bot$token/sendDocument")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.doOutput = true
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-                
-                conn.outputStream.use { out ->
-                    out.write(("--$boundary\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
-                    out.write(("$channelId\r\n").toByteArray())
-                    
-                    out.write(("--$boundary\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
-                    out.write(("ملف قاعدة البيانات المحدث الاحتياطي: tadkeera_db_backup.db\r\n").toByteArray())
-
-                    // Write document file
-                    out.write(("--$boundary\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"tadkeera_db_backup.db\"\r\n").toByteArray())
-                    out.write(("Content-Type: application/octet-stream\r\n\r\n").toByteArray())
-                    out.write(dbFile.readBytes())
-                    out.write(("\r\n").toByteArray())
-
-                    // End boundary
-                    out.write(("--$boundary--\r\n").toByteArray())
+                // Check connectivity, if offline, queue it!
+                val success = uploadBackupDirect()
+                if (!success) {
+                    repository.enqueueItem(SyncQueueItem(type = "backup", filePath = dbFile.path))
                 }
-                conn.responseCode
-                conn.disconnect()
-
-                // 2. Save tickets as JSON file and upload via sendDocument API
-                val eventsList = repository.allEvents.first()
-                val allTickets = mutableListOf<Ticket>()
-                for (e in eventsList) {
-                    allTickets.addAll(repository.getTickets(e.eventId).first())
-                }
-                val syncData = SyncPayload(event = Event(eventName = "نسخ احتياطي شامل", eventDate = System.currentTimeMillis()), tickets = allTickets)
-                
-                val tempFile = File(context.cacheDir, "tadkeera_db_backup.json")
-                val gson = Gson()
-                val jsonString = gson.toJson(syncData)
-                tempFile.writeText(jsonString)
-
-                val boundaryJson = "Boundary-" + UUID.randomUUID().toString()
-                val docUrl = URL("https://api.telegram.org/bot$token/sendDocument")
-                val docConn = docUrl.openConnection() as HttpURLConnection
-                docConn.doOutput = true
-                docConn.requestMethod = "POST"
-                docConn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundaryJson")
-
-                docConn.outputStream.use { out ->
-                    // Write chat_id
-                    out.write(("--$boundaryJson\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
-                    out.write(("$channelId\r\n").toByteArray())
-
-                    // Write caption
-                    out.write(("--$boundaryJson\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
-                    out.write(("ملف بيانات تذاكر المناسبات الاحتياطي الشامل بصيغة JSON\r\n").toByteArray())
-
-                    // Write document file
-                    out.write(("--$boundaryJson\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"${tempFile.name}\"\r\n").toByteArray())
-                    out.write(("Content-Type: application/json\r\n\r\n").toByteArray())
-                    out.write(tempFile.readBytes())
-                    out.write(("\r\n").toByteArray())
-
-                    // End boundary
-                    out.write(("--$boundaryJson--\r\n").toByteArray())
-                }
-                docConn.responseCode
-                docConn.disconnect()
-                tempFile.delete()
-
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -884,40 +1042,11 @@ class MainViewModel @Inject constructor(
     fun uploadPdfToTelegram(pdfFile: File, eventName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val prefs = context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE)
-                val token = prefs.getString("bot_token", "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y") ?: "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y"
-                val channelId = prefs.getString("channel_id", "-1004357014151") ?: "-1004357014151"
-
-                val boundary = "Boundary-" + UUID.randomUUID().toString()
-                val docUrl = URL("https://api.telegram.org/bot$token/sendDocument")
-                val docConn = docUrl.openConnection() as HttpURLConnection
-                docConn.doOutput = true
-                docConn.requestMethod = "POST"
-                docConn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-
-                docConn.outputStream.use { out ->
-                    // Write chat_id
-                    out.write(("--$boundary\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n").toByteArray())
-                    out.write(("$channelId\r\n").toByteArray())
-
-                    // Write caption
-                    out.write(("--$boundary\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"caption\"\r\n\r\n").toByteArray())
-                    out.write(("تقرير تذاكر مناسبة: $eventName (PDF)\r\n").toByteArray())
-
-                    // Write document file
-                    out.write(("--$boundary\r\n").toByteArray())
-                    out.write(("Content-Disposition: form-data; name=\"document\"; filename=\"${pdfFile.name}\"\r\n").toByteArray())
-                    out.write(("Content-Type: application/pdf\r\n\r\n").toByteArray())
-                    out.write(pdfFile.readBytes())
-                    out.write(("\r\n").toByteArray())
-
-                    // End boundary
-                    out.write(("--$boundary--\r\n").toByteArray())
+                // Check connectivity, if offline, queue it!
+                val success = uploadPdfDirect(pdfFile, eventName)
+                if (!success) {
+                    repository.enqueueItem(SyncQueueItem(type = "pdf", filePath = pdfFile.path, eventName = eventName))
                 }
-                docConn.responseCode
-                docConn.disconnect()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -928,8 +1057,8 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val prefs = context.getSharedPreferences("TadkeeraTelegram", Context.MODE_PRIVATE)
-                val token = prefs.getString("bot_token", "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y") ?: "8605619071:AAG10sarSfX8G37FsGRcsTzPP2mkaaTii1Y"
-                val channelId = prefs.getString("channel_id", "-1004357014151") ?: "-1004357014151"
+                val token = prefs.getString("bot_token", "8855448849:AAEOMwTZFNlZ2dRFwbsPdUjsMVVQDwg6_R0") ?: "8855448849:AAEOMwTZFNlZ2dRFwbsPdUjsMVVQDwg6_R0"
+                val channelId = prefs.getString("channel_id", "-1004389676098") ?: "-1004389676098"
                 
                 val updatesUrl = URL("https://api.telegram.org/bot$token/getUpdates")
                 val connection = updatesUrl.openConnection() as HttpURLConnection
@@ -975,6 +1104,14 @@ class MainViewModel @Inject constructor(
                 val bytes = downloadConn.inputStream.use { it.readBytes() }
                 downloadConn.disconnect()
                 
+                // Verify downloaded bytes before restoring to prevent corruption/wipeout!
+                if (bytes.size < 16 || !bytes.sliceArray(0..14).contentEquals("SQLite format 3".toByteArray(Charsets.US_ASCII))) {
+                    withContext(Dispatchers.Main) {
+                        onComplete(false, "الملف السحابي المحمل ليس ملف قاعدة بيانات تذكرة صالح! تم حمايتك ومنع الاستعادة لضمان أمان الهاتف.")
+                    }
+                    return@launch
+                }
+
                 database.close()
                 val dbFile = context.getDatabasePath("tadkeera_db")
                 dbFile.writeBytes(bytes)
