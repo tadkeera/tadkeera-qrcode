@@ -19,7 +19,7 @@ data class Ticket(
     val eventId: String,
     val eventCode: String,
     val ticketNumber: Int,
-    val qrCodeData: String, // 24-char unique code or Signed Cryptographic Token
+    val qrCodeData: String, // Signed Cryptographic Token
     val guestName: String = "",
     val issuedAt: Long = System.currentTimeMillis(),
     var isScanned: Boolean = false,
@@ -46,9 +46,14 @@ data class TicketDesign(
     val guestNameSize: Float,
     val showGuestName: Boolean,
     val isDefault: Boolean = false,
-    val eventCodeColor: String = "#C62828", // default Red
-    val guestNameColor: String = "#2E7D32", // default Green
-    val guestNameFont: String = "arial.ttf", // default Amiri
+    val eventCodeColor: String = "#C62828",
+    val guestNameColor: String = "#2E7D32",
+    val guestNameFont: String = "arial.ttf",
+    // Sizing and Font Weight settings!
+    val eventCodeWidth: Float = 0.3f,
+    val eventCodeHeight: Float = 0.08f,
+    val guestNameWidth: Float = 0.4f,
+    val guestNameHeight: Float = 0.08f,
     val eventCodeWeight: String = "bold",
     val guestNameWeight: String = "bold"
 )
