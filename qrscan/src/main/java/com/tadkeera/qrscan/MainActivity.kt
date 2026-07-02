@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.net.Uri
+import android.net.nsd.NsdManager
+import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -43,6 +45,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -51,14 +54,19 @@ import com.google.gson.reflect.TypeToken
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStreamReader
+import java.io.PrintWriter
 import java.net.HttpURLConnection
+import java.net.ServerSocket
+import java.net.Socket
 import java.net.URL
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
@@ -100,7 +108,7 @@ sealed class ScanResult {
     object Invalid : ScanResult()
 }
 
-// Cryptographic signing utility using Pre-Shared Master Salt (Identical to Main App)
+// Cryptographic signing utility using Pre-Shared Master Salt
 object TicketCryptography {
     private const val MASTER_SALT = "TadkeeraSecuritySaltKey2026MasterSaltSignature"
 
@@ -128,6 +136,14 @@ object TicketCryptography {
         }
     }
 }
+
+// P2P Networking message formats
+data class P2PMessage(
+    val type: String, // "SCAN", "RESULT", "SYNC_TICKET"
+    val qrCodeData: String = "",
+    val resultType: String = "", // "Success", "Duplicate", "Invalid"
+    val ticket: Ticket? = null
+)
 
 class MainActivity : ComponentActivity() {
     private lateinit var sharedPreferences: SharedPreferences
@@ -188,6 +204,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val gson = Gson()
+    val scope = rememberCoroutineScope()
 
     // Persistent state variables
     var event by remember {
@@ -212,6 +229,21 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
         }
     }
 
+    // P2P Sync States (NEW!)
+    var p2pMode by remember { mutableStateOf("STANDALONE") } // "STANDALONE", "SERVER", "CLIENT"
+    var clientCount by remember { mutableStateOf(0) }
+    var clientConnectionStatus by remember { mutableStateOf("غير متصل 🔴") } // Status text for Client
+
+    // Server-side socket list
+    val clientSockets = remember { mutableStateListOf<PrintWriter>() }
+    var serverSocket: ServerSocket? by remember { mutableStateOf(null) }
+    var nsdManager: NsdManager? by remember { mutableStateOf(null) }
+    var nsdServiceInfo: NsdServiceInfo? by remember { mutableStateOf(null) }
+
+    // Client-side socket
+    var clientSocket: Socket? by remember { mutableStateOf(null) }
+    var clientWriter: PrintWriter? by remember { mutableStateOf(null) }
+
     // Manual Entry Fields
     var manualEventCode by remember { mutableStateOf("") }
     var manualTicketNo by remember { mutableStateOf("") }
@@ -231,7 +263,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
 
     val toneGenerator = remember { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100) }
 
-    // Save state to Shared Preferences whenever it is modified
+    // Save state to Shared Preferences
     fun saveState(currentEvent: Event?, currentTickets: List<Ticket>) {
         sharedPreferences.edit().apply {
             if (currentEvent != null) {
@@ -242,6 +274,276 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                 remove("saved_tickets")
             }
             apply()
+        }
+    }
+
+    // Helper to broadcast changes to all connected clients
+    fun broadcastMessage(msg: P2PMessage) {
+        val json = gson.toJson(msg)
+        scope.launch(Dispatchers.IO) {
+            clientSockets.forEach { writer ->
+                try {
+                    writer.println(json)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    // Terminate P2P networking cleanly
+    fun terminateP2P() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                nsdManager?.unregisterService(object : NsdManager.RegistrationListener {
+                    override fun onServiceRegistered(NsdServiceInfo: NsdServiceInfo) {}
+                    override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
+                    override fun onServiceUnregistered(arg0: NsdServiceInfo) {}
+                    override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
+                })
+            } catch (e: Exception) {}
+
+            try {
+                serverSocket?.close()
+                serverSocket = null
+            } catch (e: Exception) {}
+
+            try {
+                clientSocket?.close()
+                clientSocket = null
+                clientWriter = null
+            } catch (e: Exception) {}
+
+            clientSockets.clear()
+            clientCount = 0
+            clientConnectionStatus = "غير متصل 🔴"
+        }
+    }
+
+    // Start Master Server TCP Socket & NSD Broadcast
+    fun startP2PServer() {
+        terminateP2P()
+        scope.launch(Dispatchers.IO) {
+            try {
+                val ss = ServerSocket(8088)
+                serverSocket = ss
+                
+                // Register local service via NSD
+                val serviceInfo = NsdServiceInfo().apply {
+                    serviceName = "TadkeeraP2PSync"
+                    serviceType = "_tadkeera._tcp"
+                    port = 8088
+                }
+                val nsd = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+                nsdManager = nsd
+                
+                nsd.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, object : NsdManager.RegistrationListener {
+                    override fun onServiceRegistered(NsdServiceInfo: NsdServiceInfo) {
+                        nsdServiceInfo = NsdServiceInfo
+                    }
+                    override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
+                    override fun onServiceUnregistered(arg0: NsdServiceInfo) {}
+                    override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
+                })
+
+                // Listen for client sockets
+                while (p2pMode == "SERVER" && !ss.isClosed) {
+                    val socket = ss.accept()
+                    scope.launch(Dispatchers.IO) {
+                        val writer = PrintWriter(socket.getOutputStream(), true)
+                        val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
+                        clientSockets.add(writer)
+                        clientCount = clientSockets.size
+                        
+                        try {
+                            var line: String?
+                            while (reader.readLine().also { line = it } != null) {
+                                val msg = gson.fromJson(line, P2PMessage::class.java)
+                                if (msg != null && msg.type == "SCAN") {
+                                    val qrCode = msg.qrCodeData
+                                    
+                                    // Synchronized scanning process on host
+                                    synchronized(tickets) {
+                                        val ticket = tickets.find { it.qrCodeData == qrCode && it.eventId == event!!.eventId }
+                                        val resMsg = if (ticket == null) {
+                                            P2PMessage(type = "RESULT", resultType = "Invalid")
+                                        } else {
+                                            if (ticket.isScanned) {
+                                                ticket.scanCount += 1
+                                                saveState(event, tickets.toList())
+                                                P2PMessage(type = "RESULT", resultType = "Duplicate", ticket = ticket)
+                                            } else {
+                                                ticket.isScanned = true
+                                                ticket.scannedAt = System.currentTimeMillis()
+                                                ticket.scanCount = 1
+                                                saveState(event, tickets.toList())
+                                                P2PMessage(type = "RESULT", resultType = "Success", ticket = ticket)
+                                            }
+                                        }
+                                        
+                                        // 1. Reply the scan result back to calling client
+                                        writer.println(gson.toJson(resMsg))
+                                        
+                                        // 2. Broadcast the ticket sync to all other connected clients!
+                                        if (resMsg.ticket != null) {
+                                            broadcastMessage(P2PMessage(type = "SYNC_TICKET", ticket = resMsg.ticket))
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        } finally {
+                            clientSockets.remove(writer)
+                            clientCount = clientSockets.size
+                            try { socket.close() } catch (e: Exception) {}
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    // Start Gatekeeper Client Socket & Auto-discovery
+    fun startP2PClient() {
+        terminateP2P()
+        clientConnectionStatus = "جاري البحث عن المستضيف... 🟡"
+        
+        val nsd = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+        nsdManager = nsd
+        
+        val discoveryListener = object : NsdManager.DiscoveryListener {
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                nsd.stopServiceDiscovery(this)
+            }
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
+            override fun onDiscoveryStarted(serviceType: String) {}
+            override fun onDiscoveryStopped(serviceType: String) {}
+            
+            override fun onServiceFound(serviceInfo: NsdServiceInfo) {
+                if (serviceInfo.serviceName.contains("TadkeeraP2PSync")) {
+                    nsd.resolveService(serviceInfo, object : NsdManager.ResolveListener {
+                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
+                        
+                        override fun onServiceResolved(resolvedInfo: NsdServiceInfo) {
+                            val hostAddress = resolvedInfo.host.hostAddress
+                            val portNum = resolvedInfo.port
+                            
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    val socket = Socket(hostAddress, portNum)
+                                    clientSocket = socket
+                                    val writer = PrintWriter(socket.getOutputStream(), true)
+                                    clientWriter = writer
+                                    val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
+                                    
+                                    clientConnectionStatus = "متصل بالمستضيف 🟢"
+                                    
+                                    var line: String?
+                                    while (reader.readLine().also { line = it } != null) {
+                                        val msg = gson.fromJson(line, P2PMessage::class.java)
+                                        if (msg != null) {
+                                            when (msg.type) {
+                                                "RESULT" -> {
+                                                    // Received the local scan response from the master server
+                                                    val res = when (msg.resultType) {
+                                                        "Success" -> ScanResult.Success(msg.ticket!!)
+                                                        "Duplicate" -> ScanResult.Duplicate(msg.ticket!!, msg.ticket.scannedAt ?: System.currentTimeMillis())
+                                                        else -> ScanResult.Invalid
+                                                    }
+                                                    scanResult = res
+                                                    showResultDialog = true
+                                                    
+                                                    // Trigger Tone Feedback
+                                                    try {
+                                                        if (res is ScanResult.Success) {
+                                                            toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 200)
+                                                        } else {
+                                                            toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
+                                                        }
+                                                    } catch (e: Exception) {}
+                                                }
+                                                "SYNC_TICKET" -> {
+                                                    // Sync other client's check-ins to keep local memory list identical
+                                                    val remoteTicket = msg.ticket
+                                                    if (remoteTicket != null) {
+                                                        val idx = tickets.indexOfFirst { it.qrCodeData == remoteTicket.qrCodeData }
+                                                        if (idx != -1) {
+                                                            tickets[idx] = remoteTicket
+                                                        } else {
+                                                            tickets.add(remoteTicket)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    clientConnectionStatus = "فشل الاتصال بالمستضيف 🔴"
+                                }
+                            }
+                        }
+                    })
+                }
+            }
+            override fun onServiceLost(serviceInfo: NsdServiceInfo) {}
+        }
+        
+        nsd.discoverServices("_tadkeera._tcp", NsdManager.PROTOCOL_DNS_SD, discoveryListener)
+    }
+
+    // Client-side remote verification call
+    fun verifyViaP2PServer(qrCode: String) {
+        val writer = clientWriter
+        if (writer != null) {
+            scope.launch(Dispatchers.IO) {
+                writer.println(gson.toJson(P2PMessage(type = "SCAN", qrCodeData = qrCode)))
+            }
+        } else {
+            Toast.makeText(context, "خطأ: غير متصل بجهاز مستضيف البوابة الرئيسي!", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Local Scanner Verification Logic (Standalone or Server Host mode)
+    fun verifyLocally(qrCode: String, isManual: Boolean = false) {
+        synchronized(tickets) {
+            val ticket = tickets.find { it.qrCodeData == qrCode && it.eventId == event!!.eventId }
+            if (ticket == null) {
+                scanResult = ScanResult.Invalid
+            } else {
+                if (ticket.isScanned) {
+                    ticket.scanCount += 1
+                    scanResult = ScanResult.Duplicate(ticket, ticket.scannedAt ?: System.currentTimeMillis())
+                    saveState(event, tickets.toList())
+                    triggerTelegramReport(context, event!!, tickets, "محاولة تكرار مسح تذكرة ⚠️", ticket)
+                    
+                    // Broadcast check-in to all connected scanners!
+                    broadcastMessage(P2PMessage(type = "SYNC_TICKET", ticket = ticket))
+                } else {
+                    ticket.isScanned = true
+                    ticket.scannedAt = System.currentTimeMillis()
+                    ticket.scanCount = 1
+                    scanResult = ScanResult.Success(ticket)
+                    saveState(event, tickets.toList())
+                    triggerTelegramReport(context, event!!, tickets, "مسح تذكرة معتمد جديد ✅", ticket)
+                    
+                    // Broadcast check-in to all connected scanners!
+                    broadcastMessage(P2PMessage(type = "SYNC_TICKET", ticket = ticket))
+                }
+            }
+            showResultDialog = true
+            
+            // Sound feedback
+            try {
+                if (scanResult is ScanResult.Success) {
+                    toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 200)
+                } else {
+                    toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
+                }
+            } catch (e: Exception) {}
         }
     }
 
@@ -320,7 +622,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
             }
         }
     } else {
-        // Scanner View - Back Button is deleted as requested!
+        // Scanner View
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -372,41 +674,16 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                                             if (barcodes.isNotEmpty() && !showResultDialog) {
                                                 val qrCode = barcodes.first().rawValue ?: ""
                                                 
-                                                // Verify HMAC signature offline first!
                                                 if (!TicketCryptography.verifyTicketSignature(qrCode)) {
                                                     scanResult = ScanResult.Invalid
+                                                    showResultDialog = true
+                                                    try { toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 400) } catch (e: Exception) {}
                                                 } else {
-                                                    // Scan processing - Strictly Isolated by Event ID
-                                                    val ticket = tickets.find { it.qrCodeData == qrCode && it.eventId == event!!.eventId }
-                                                    if (ticket == null) {
-                                                        scanResult = ScanResult.Invalid
+                                                    if (p2pMode == "CLIENT") {
+                                                        verifyViaP2PServer(qrCode)
                                                     } else {
-                                                        if (ticket.isScanned) {
-                                                            ticket.scanCount += 1
-                                                            scanResult = ScanResult.Duplicate(ticket, ticket.scannedAt ?: System.currentTimeMillis())
-                                                            saveState(event, tickets)
-                                                            triggerTelegramReport(context, event!!, tickets, "محاولة تكرار مسح تذكرة ⚠️", ticket)
-                                                        } else {
-                                                            ticket.isScanned = true
-                                                            ticket.scannedAt = System.currentTimeMillis()
-                                                            ticket.scanCount = 1
-                                                            scanResult = ScanResult.Success(ticket)
-                                                            saveState(event, tickets)
-                                                            triggerTelegramReport(context, event!!, tickets, "مسح تذكرة معتمد جديد ✅", ticket)
-                                                        }
+                                                        verifyLocally(qrCode)
                                                     }
-                                                }
-                                                showResultDialog = true
-                                                
-                                                // Play sound feedback based on result
-                                                try {
-                                                    if (scanResult is ScanResult.Success) {
-                                                        toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 200)
-                                                    } else {
-                                                        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
-                                                    }
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
                                                 }
                                             }
                                         }
@@ -439,7 +716,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Central Scanning Target Box (المربع في الوسط)
+                // Central Scanning Target Box
                 Box(
                     modifier = Modifier
                         .size(260.dp)
@@ -453,6 +730,23 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                             .height(2.dp)
                             .background(Color.Red.copy(alpha = 0.8f))
                     )
+                }
+
+                // Overlay status for P2P connection (NEW!)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(16.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    val statusText = when (p2pMode) {
+                        "SERVER" -> "وضع مستضيف البوابة 🖥️ | الأجهزة المتصلة: $clientCount"
+                        "CLIENT" -> "وضع منظم البوابات 📱 | $clientConnectionStatus"
+                        else -> "الوضع المستقل 📴 | العمل الفردي"
+                    }
+                    Text(statusText, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
 
                 // Overlay controls with manual checking input fields at the bottom
@@ -541,7 +835,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                                 if (manualEventCode.length == 5 && manualTicketNo.isNotEmpty()) {
                                     val ticketNoInt = manualTicketNo.toIntOrNull()
                                     if (ticketNoInt != null) {
-                                        // Verify ticket manually - Find matching eventId
+                                        // Manual verification - matching locally or remotely
                                         val ticket = tickets.find {
                                             it.eventCode.equals(manualEventCode, ignoreCase = true) &&
                                             it.ticketNumber == ticketNoInt &&
@@ -549,35 +843,16 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                                         }
                                         if (ticket == null) {
                                             scanResult = ScanResult.Invalid
+                                            showResultDialog = true
                                         } else {
-                                            if (ticket.isScanned) {
-                                                ticket.scanCount += 1
-                                                scanResult = ScanResult.Duplicate(ticket, ticket.scannedAt ?: System.currentTimeMillis())
-                                                saveState(event, tickets)
-                                                triggerTelegramReport(context, event!!, tickets, "محاولة تكرار مسح يدوي ⚠️", ticket)
+                                            if (p2pMode == "CLIENT") {
+                                                verifyViaP2PServer(ticket.qrCodeData)
                                             } else {
-                                                ticket.isScanned = true
-                                                ticket.scannedAt = System.currentTimeMillis()
-                                                ticket.scanCount = 1
-                                                scanResult = ScanResult.Success(ticket)
-                                                saveState(event, tickets)
-                                                triggerTelegramReport(context, event!!, tickets, "مسح يدوي معتمد جديد ✅", ticket)
+                                                verifyLocally(ticket.qrCodeData, isManual = true)
                                             }
                                         }
-                                        showResultDialog = true
                                         manualEventCode = ""
                                         manualTicketNo = ""
-                                        
-                                        // Play sound feedback
-                                        try {
-                                            if (scanResult is ScanResult.Success) {
-                                                toneGenerator.startTone(ToneGenerator.TONE_PROP_ACK, 200)
-                                            } else {
-                                                toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP2, 400)
-                                            }
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                        }
                                     } else {
                                         Toast.makeText(context, "الرجاء إدخال رقم تذكرة صحيح", Toast.LENGTH_SHORT).show()
                                     }
@@ -595,7 +870,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
             }
         }
 
-        // Settings / Telegram Sync Dialog
+        // Settings / Telegram Sync / P2P Configuration Dialog
         if (showSettings) {
             AlertDialog(
                 onDismissRequest = { showSettings = false },
@@ -605,6 +880,43 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        // NEW! P2P Local Networking Mode Selector!
+                        Text("الربط والشبكات المحلية المتعددة أوفلاين (P2P):", fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = p2pMode == "STANDALONE",
+                                onClick = {
+                                    p2pMode = "STANDALONE"
+                                    terminateP2P()
+                                },
+                                label = { Text("مستقل 📴") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            FilterChip(
+                                selected = p2pMode == "SERVER",
+                                onClick = {
+                                    p2pMode = "SERVER"
+                                    startP2PServer()
+                                },
+                                label = { Text("مستضيف 🖥️") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            FilterChip(
+                                selected = p2pMode == "CLIENT",
+                                onClick = {
+                                    p2pMode = "CLIENT"
+                                    startP2PClient()
+                                },
+                                label = { Text("منظم 📱") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Divider()
+
                         Button(
                             onClick = {
                                 triggerTelegramReport(context, event!!, tickets, "مزامنة وتقرير يدوي فوري 🔄")
@@ -618,6 +930,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                         // Danger Reset option to clear the event if explicitly requested
                         Button(
                             onClick = {
+                                terminateP2P()
                                 event = null
                                 tickets.clear()
                                 saveState(null, emptyList())
@@ -759,7 +1072,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "تذكرة غير صالحة ❌\nممنوع الدخول",
+                                        "تذكرة غير صالحة أو تالفة ❌\nممنوع الدخول",
                                         color = Color.White,
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleLarge,
@@ -768,12 +1081,11 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                                 }
 
                                 Text(
-                                    "هذا الكود غير مسجل في قاعدة البيانات لهذه المناسبة.",
+                                    "هذا الكود غير مسجل في قاعدة البيانات أو تم التلاعب بتوقيعه الرقمي المشفر.",
                                     textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
-                            else -> {}
                         }
                     }
                 },
