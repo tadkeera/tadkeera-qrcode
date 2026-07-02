@@ -437,8 +437,9 @@ class MainViewModel @Inject constructor(
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
         }
         
+        val voidText = "نسخة VOID"
         val textPath = android.graphics.Path()
-        textPaint.getTextPath("نسخة VOID", 0, 10, width / 2f, height / 2f + 10f, textPath)
+        textPaint.getTextPath(voidText, 0, voidText.length, width / 2f, height / 2f + 10f, textPath)
         
         val bounds = android.graphics.RectF()
         textPath.computeBounds(bounds, true)

@@ -102,14 +102,11 @@ fun TicketDesignScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    var showGuestName by remember { mutableStateOf(false) }
+    var showGuestName by remember { mutableStateOf(true) } // Guest Name box is ALWAYS active!
     var selectedPdfFile by remember { mutableStateOf<File?>(null) }
     var pdfBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var containerWidth by remember { mutableStateOf(1) }
     var containerHeight by remember { mutableStateOf(1) }
-
-    // Active Element Selected state
-    var activeElement by remember { mutableStateOf(SelectedElement.NONE) }
 
     // Overlay Elements Positions & Sizes (Normalized 0.0 to 1.0)
     var qrX by remember { mutableStateOf(0.1f) }
@@ -228,218 +225,216 @@ fun TicketDesignScreen(
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "انقر على المربع لتحديده وتعديل خصائصه المتقدمة (الخط، الوزن، اللون). اسحب المربعات لتحديد موضعها وحرك الحواف لتغيير حجمها وحرك مقبض الدوران الدائري بالأسفل لتدوير الباركود:",
+                        text = "اسحب المربعات لتحديد موضعها وحرك الحواف لتغيير حجمها. استخدم لوحات التحكم بالأسفل لتغيير الخطوط والأوزان والألوان بالكامل:",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
 
-                    // Advanced Styling Editor for selected elements
-                    if (activeElement != SelectedElement.NONE) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    // 1. Permanent Styling Card for Event Code & Ticket Number (دائم الظهور!)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                val titleStr = when (activeElement) {
-                                    SelectedElement.QR_CODE -> "تعديل خصائص: [مربع الباركود]"
-                                    SelectedElement.EVENT_CODE -> "تعديل خصائص: [كود المناسبة ورقم التذكرة]"
-                                    SelectedElement.GUEST_NAME -> "تعديل خصائص: [اسم الضيف الكريم]"
-                                    else -> ""
+                            Text("إعدادات: [كود المناسبة ورقم التذكرة]", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            
+                            // Font Size
+                            Column {
+                                Text("حجم خط الكود: ${String.format("%.1f", codeSize)}")
+                                Slider(
+                                    value = codeSize,
+                                    onValueChange = { codeSize = it },
+                                    valueRange = 0.5f..3.0f
+                                )
+                            }
+
+                            // Font Weight Bold and Extra Bold Selector
+                            Column {
+                                Text("سماكة ووزن خط كود المناسبة:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = codeWeight == "normal",
+                                        onClick = { codeWeight = "normal" },
+                                        label = { Text("عادي") }
+                                    )
+                                    FilterChip(
+                                        selected = codeWeight == "bold",
+                                        onClick = { codeWeight = "bold" },
+                                        label = { Text("عريض (Bold)") }
+                                    )
+                                    FilterChip(
+                                        selected = codeWeight == "extrabold",
+                                        onClick = { codeWeight = "extrabold" },
+                                        label = { Text("عريض جداً (Extra)") }
+                                    )
                                 }
-                                Text(titleStr, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                                
-                                when (activeElement) {
-                                    SelectedElement.EVENT_CODE -> {
-                                        // Font Size
-                                        Column {
-                                            Text("حجم الخط: ${String.format("%.1f", codeSize)}")
-                                            Slider(
-                                                value = codeSize,
-                                                onValueChange = { codeSize = it },
-                                                valueRange = 0.5f..3.0f
-                                            )
-                                        }
-
-                                        // Font Weight Bold and Extra Bold Selector!
-                                        Column {
-                                            Text("سماكة ووزن خط كود المناسبة:", fontWeight = FontWeight.Bold)
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                FilterChip(
-                                                    selected = codeWeight == "normal",
-                                                    onClick = { codeWeight = "normal" },
-                                                    label = { Text("عادي (Normal)") }
+                            }
+                            
+                            // Color Selector
+                            Column {
+                                Text("لون خط كود المناسبة ورقم التذكرة:", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(COLOR_OPTIONS) { opt ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(CircleShape)
+                                                .background(opt.color)
+                                                .border(
+                                                    width = if (codeColorHex == opt.hex) 3.dp else 0.dp,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    shape = CircleShape
                                                 )
-                                                FilterChip(
-                                                    selected = codeWeight == "bold",
-                                                    onClick = { codeWeight = "bold" },
-                                                    label = { Text("عريض (Bold)") }
-                                                )
-                                                FilterChip(
-                                                    selected = codeWeight == "extrabold",
-                                                    onClick = { codeWeight = "extrabold" },
-                                                    label = { Text("عريض جداً (Extra Bold)") }
-                                                )
+                                                .clickable { codeColorHex = opt.hex },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (codeColorHex == opt.hex) {
+                                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                                             }
                                         }
-                                        
-                                        // Color Selector
-                                        Column {
-                                            Text("لون كود المناسبة ورقم التذكرة:", fontWeight = FontWeight.Bold)
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            LazyRow(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                items(COLOR_OPTIONS) { opt ->
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(36.dp)
-                                                            .clip(CircleShape)
-                                                            .background(opt.color)
-                                                            .border(
-                                                                width = if (codeColorHex == opt.hex) 3.dp else 0.dp,
-                                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                                shape = CircleShape
-                                                            )
-                                                            .clickable { codeColorHex = opt.hex },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        if (codeColorHex == opt.hex) {
-                                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            OutlinedTextField(
-                                                value = codeColorHex,
-                                                onValueChange = { codeColorHex = it },
-                                                label = { Text("رمز اللون يدوياً (Hex)") },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                singleLine = true
-                                            )
-                                        }
-                                    }
-                                    SelectedElement.GUEST_NAME -> {
-                                        // Font Size
-                                        Column {
-                                            Text("حجم الخط: ${String.format("%.1f", guestSize)}")
-                                            Slider(
-                                                value = guestSize,
-                                                onValueChange = { guestSize = it },
-                                                valueRange = 0.5f..3.0f
-                                            )
-                                        }
-
-                                        // Font Weight Bold and Extra Bold Selector!
-                                        Column {
-                                            Text("سماكة ووزن خط اسم الضيف:", fontWeight = FontWeight.Bold)
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                FilterChip(
-                                                    selected = guestWeight == "normal",
-                                                    onClick = { guestWeight = "normal" },
-                                                    label = { Text("عادي (Normal)") }
-                                                )
-                                                FilterChip(
-                                                    selected = guestWeight == "bold",
-                                                    onClick = { guestWeight = "bold" },
-                                                    label = { Text("عريض (Bold)") }
-                                                )
-                                                FilterChip(
-                                                    selected = guestWeight == "extrabold",
-                                                    onClick = { guestWeight = "extrabold" },
-                                                    label = { Text("عريض جداً (Extra Bold)") }
-                                                )
-                                            }
-                                        }
-
-                                        // Font Family Dropdown Selector
-                                        Column {
-                                            Text("نوع الخط العربي لاسم الضيف:", fontWeight = FontWeight.Bold)
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Box(modifier = Modifier.fillMaxWidth()) {
-                                                OutlinedCard(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable { fontDropdownExpanded = true }
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier.padding(14.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(guestFontOption.arabicName, fontWeight = FontWeight.SemiBold)
-                                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
-                                                    }
-                                                }
-
-                                                DropdownMenu(
-                                                    expanded = fontDropdownExpanded,
-                                                    onDismissRequest = { fontDropdownExpanded = false },
-                                                    modifier = Modifier.fillMaxWidth(0.9f).heightIn(max = 280.dp)
-                                                ) {
-                                                    DISPLAY_FONTS.forEach { opt ->
-                                                        DropdownMenuItem(
-                                                            text = { Text(opt.arabicName) },
-                                                            onClick = {
-                                                                guestFontOption = opt
-                                                                fontDropdownExpanded = false
-                                                            }
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        
-                                        // Color Selector
-                                        Column {
-                                            Text("لون اسم الضيف:", fontWeight = FontWeight.Bold)
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            LazyRow(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                items(COLOR_OPTIONS) { opt ->
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(36.dp)
-                                                            .clip(CircleShape)
-                                                            .background(opt.color)
-                                                            .border(
-                                                                width = if (guestColorHex == opt.hex) 3.dp else 0.dp,
-                                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                                shape = CircleShape
-                                                            )
-                                                            .clickable { guestColorHex = opt.hex },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        if (guestColorHex == opt.hex) {
-                                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            OutlinedTextField(
-                                                value = guestColorHex,
-                                                onValueChange = { guestColorHex = it },
-                                                label = { Text("رمز اللون يدوياً (Hex)") },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                singleLine = true
-                                            )
-                                        }
-                                    }
-                                    else -> {
-                                        Text("مربع كود الـ QR جاهز بدون أي خلفية بيضاء ليتناسب مع تصميم بطاقتك بنسبة 100%!", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                OutlinedTextField(
+                                    value = codeColorHex,
+                                    onValueChange = { codeColorHex = it },
+                                    label = { Text("رمز لون الكود يدوياً (Hex)") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+                            }
+                        }
+                    }
+
+                    // 2. Permanent Styling Card for Guest Name (دائم الظهور!)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text("إعدادات: [اسم الضيف الكريم]", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                            
+                            // Font Size
+                            Column {
+                                Text("حجم خط اسم الضيف: ${String.format("%.1f", guestSize)}")
+                                Slider(
+                                    value = guestSize,
+                                    onValueChange = { guestSize = it },
+                                    valueRange = 0.5f..3.0f
+                                )
+                            }
+
+                            // Font Weight Bold and Extra Bold Selector
+                            Column {
+                                Text("سماكة ووزن خط اسم الضيف:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = guestWeight == "normal",
+                                        onClick = { guestWeight = "normal" },
+                                        label = { Text("عادي") }
+                                    )
+                                    FilterChip(
+                                        selected = guestWeight == "bold",
+                                        onClick = { guestWeight = "bold" },
+                                        label = { Text("عريض (Bold)") }
+                                    )
+                                    FilterChip(
+                                        selected = guestWeight == "extrabold",
+                                        onClick = { guestWeight = "extrabold" },
+                                        label = { Text("عريض جداً (Extra)") }
+                                    )
+                                }
+                            }
+
+                            // Font Family Dropdown Selector
+                            Column {
+                                Text("نوع الخط العربي لاسم الضيف:", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedCard(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { fontDropdownExpanded = true }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(14.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(guestFontOption.arabicName, fontWeight = FontWeight.SemiBold)
+                                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                                        }
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = fontDropdownExpanded,
+                                        onDismissRequest = { fontDropdownExpanded = false },
+                                        modifier = Modifier.fillMaxWidth(0.9f).heightIn(max = 280.dp)
+                                    ) {
+                                        DISPLAY_FONTS.forEach { opt ->
+                                            DropdownMenuItem(
+                                                text = { Text(opt.arabicName) },
+                                                onClick = {
+                                                    guestFontOption = opt
+                                                    fontDropdownExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Color Selector
+                            Column {
+                                Text("لون خط اسم الضيف:", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(COLOR_OPTIONS) { opt ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(CircleShape)
+                                                .background(opt.color)
+                                                .border(
+                                                    width = if (guestColorHex == opt.hex) 3.dp else 0.dp,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    shape = CircleShape
+                                                )
+                                                .clickable { guestColorHex = opt.hex },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (guestColorHex == opt.hex) {
+                                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                OutlinedTextField(
+                                    value = guestColorHex,
+                                    onValueChange = { guestColorHex = it },
+                                    label = { Text("رمز لون اسم الضيف يدوياً (Hex)") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
                             }
                         }
                     }
@@ -462,7 +457,7 @@ fun TicketDesignScreen(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // 1. Draggable QR Code overlay with transparent background!
+                        // 1. Draggable QR Code overlay
                         if (isQrActive) {
                             Box(
                                 modifier = Modifier
@@ -478,13 +473,10 @@ fun TicketDesignScreen(
                                     )
                                     .rotate(qrCodeRotation)
                                     .border(
-                                        width = if (activeElement == SelectedElement.QR_CODE) 3.dp else 2.dp,
-                                        color = if (activeElement == SelectedElement.QR_CODE) MaterialTheme.colorScheme.primary else Color.Black,
+                                        width = 2.dp,
+                                        color = Color.Black,
                                         shape = RoundedCornerShape(4.dp)
                                     )
-                                    .clickable {
-                                        activeElement = SelectedElement.QR_CODE
-                                    }
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
@@ -619,14 +611,11 @@ fun TicketDesignScreen(
                                         height = containerHeightDp * codeH
                                     )
                                     .border(
-                                        width = if (activeElement == SelectedElement.EVENT_CODE) 3.dp else 2.dp,
-                                        color = if (activeElement == SelectedElement.EVENT_CODE) MaterialTheme.colorScheme.primary else Color.Red,
+                                        width = 2.dp,
+                                        color = Color.Red,
                                         shape = RoundedCornerShape(4.dp)
                                     )
                                     .background(Color.White.copy(alpha = 0.5f))
-                                    .clickable {
-                                        activeElement = SelectedElement.EVENT_CODE
-                                    }
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
@@ -686,14 +675,11 @@ fun TicketDesignScreen(
                                         height = containerHeightDp * guestH
                                     )
                                     .border(
-                                        width = if (activeElement == SelectedElement.GUEST_NAME) 3.dp else 2.dp,
-                                        color = if (activeElement == SelectedElement.GUEST_NAME) MaterialTheme.colorScheme.primary else Color.Green,
+                                        width = 2.dp,
+                                        color = Color.Green,
                                         shape = RoundedCornerShape(4.dp)
                                     )
                                     .background(Color.White.copy(alpha = 0.5f))
-                                    .clickable {
-                                        activeElement = SelectedElement.GUEST_NAME
-                                    }
                                     .pointerInput(Unit) {
                                         detectDragGestures { change, dragAmount ->
                                             change.consume()
