@@ -59,31 +59,15 @@ data class SyncPayload(
     val tickets: List<Ticket>
 )
 
-// Cryptographic signing utility using Android Keystore
+// Cryptographic signing utility using Pre-Shared Master Salt
 object TicketCryptography {
-    private const val KEY_ALIAS = "TadkeeraKeyAlias"
-    private const val ANDROID_KEYSTORE = "AndroidKeyStore"
-
-    fun getOrCreateSecretKey(): SecretKey {
-        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
-        keyStore.load(null)
-        if (keyStore.containsAlias(KEY_ALIAS)) {
-            val entry = keyStore.getEntry(KEY_ALIAS, null) as KeyStore.SecretKeyEntry
-            return entry.secretKey
-        } else {
-            val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, ANDROID_KEYSTORE)
-            keyGenerator.init(
-                KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
-                    .build()
-            )
-            return keyGenerator.generateKey()
-        }
-    }
+    private const val MASTER_SALT = "TadkeeraSecuritySaltKey2026MasterSaltSignature"
 
     fun signTicket(eventId: String, ticketNumber: Int, eventCode: String): String {
         val message = "$eventId#$ticketNumber#$eventCode"
-        val key = getOrCreateSecretKey()
-        val mac = Mac.getInstance("HmacSHA256")
+        val keyBytes = MASTER_SALT.toByteArray(Charsets.UTF_8)
+        val key = javax.crypto.spec.SecretKeySpec(keyBytes, "HmacSHA256")
+        val mac = javax.crypto.Mac.getInstance("HmacSHA256")
         mac.init(key)
         val hmacBytes = mac.doFinal(message.toByteArray(Charsets.UTF_8))
         
@@ -101,8 +85,9 @@ object TicketCryptography {
             val originalSignature = parts[3]
             
             val message = "$eventId#$ticketNumber#$eventCode"
-            val key = getOrCreateSecretKey()
-            val mac = Mac.getInstance("HmacSHA256")
+            val keyBytes = MASTER_SALT.toByteArray(Charsets.UTF_8)
+            val key = javax.crypto.spec.SecretKeySpec(keyBytes, "HmacSHA256")
+            val mac = javax.crypto.Mac.getInstance("HmacSHA256")
             mac.init(key)
             val expectedHmacBytes = mac.doFinal(message.toByteArray(Charsets.UTF_8))
             val expectedSignature = android.util.Base64.encodeToString(expectedHmacBytes, android.util.Base64.NO_WRAP or android.util.Base64.URL_SAFE)

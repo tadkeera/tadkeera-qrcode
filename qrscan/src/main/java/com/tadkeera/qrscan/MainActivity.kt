@@ -145,6 +145,64 @@ data class P2PMessage(
     val ticket: Ticket? = null
 )
 
+@Composable
+fun TadkeeraCompanionTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val customFontFamily = remember {
+        try {
+            androidx.compose.ui.text.font.FontFamily(
+                androidx.compose.ui.text.font.Font(
+                    path = "fonts/cairo.ttf",
+                    assetManager = context.assets,
+                    weight = androidx.compose.ui.text.font.FontWeight.Normal
+                ),
+                androidx.compose.ui.text.font.Font(
+                    path = "fonts/cairo.ttf",
+                    assetManager = context.assets,
+                    weight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+            )
+        } catch (e: Exception) {
+            androidx.compose.ui.text.font.FontFamily.Default
+        }
+    }
+
+    val baseTypography = androidx.compose.material3.Typography()
+    val typography = androidx.compose.material3.Typography(
+        displayLarge = baseTypography.displayLarge.copy(fontFamily = customFontFamily),
+        displayMedium = baseTypography.displayMedium.copy(fontFamily = customFontFamily),
+        displaySmall = baseTypography.displaySmall.copy(fontFamily = customFontFamily),
+        headlineLarge = baseTypography.headlineLarge.copy(fontFamily = customFontFamily),
+        headlineMedium = baseTypography.headlineMedium.copy(fontFamily = customFontFamily),
+        headlineSmall = baseTypography.headlineSmall.copy(fontFamily = customFontFamily),
+        titleLarge = baseTypography.titleLarge.copy(fontFamily = customFontFamily),
+        titleMedium = baseTypography.titleMedium.copy(fontFamily = customFontFamily),
+        titleSmall = baseTypography.titleSmall.copy(fontFamily = customFontFamily),
+        bodyLarge = baseTypography.bodyLarge.copy(fontFamily = customFontFamily),
+        bodyMedium = baseTypography.bodyMedium.copy(fontFamily = customFontFamily),
+        bodySmall = baseTypography.bodySmall.copy(fontFamily = customFontFamily),
+        labelLarge = baseTypography.labelLarge.copy(fontFamily = customFontFamily),
+        labelMedium = baseTypography.labelMedium.copy(fontFamily = customFontFamily),
+        labelSmall = baseTypography.labelSmall.copy(fontFamily = customFontFamily)
+    )
+
+    val colorScheme = androidx.compose.material3.lightColorScheme(
+        primary = Color(0xFFFF6D00), // Orange
+        secondary = Color(0xFF1976D2), // Blue
+        tertiary = Color(0xFF7B1FA2), // Purple
+        background = Color(0xFFF8F9FA), // Off-white
+        surface = Color.White,
+        onBackground = Color(0xFF111E38),
+        onSurface = Color(0xFF111E38)
+    )
+
+    androidx.compose.material3.MaterialTheme(
+        colorScheme = colorScheme,
+        typography = typography,
+        content = content
+    )
+}
+
 class MainActivity : ComponentActivity() {
     private lateinit var sharedPreferences: SharedPreferences
 
@@ -155,7 +213,7 @@ class MainActivity : ComponentActivity() {
         requestPermissionsOnStartup()
 
         setContent {
-            MaterialTheme {
+            TadkeeraCompanionTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

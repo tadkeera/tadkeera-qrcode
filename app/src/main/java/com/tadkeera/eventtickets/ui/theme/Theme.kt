@@ -1,46 +1,88 @@
 package com.tadkeera.eventtickets.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 
-// Premium, Elegant Dark Mode Colors matching 2026 UX/UI Trends!
-val DeepSlateNavy = Color(0xFF0F172A)  // Deep slate background
-val CardSlate = Color(0xFF1E293B)      // Slightly lighter slate for card surfaces
-val RoyalPurple = Color(0xFF4F46E5)    // Indigo/Royal purple primary accent
-val VividPurple = Color(0xFF6366F1)    // Vibrant indigo for highlight states
-val EmeraldGreen = Color(0xFF10B981)   // Emerald green success indicator
-val CrimsonRed = Color(0xFFEF4444)     // Crimson red delete/error indicator
-val TextWhite = Color(0xFFFFFFFF)      // Pure white text
-val TextMuted = Color(0xFF94A3B8)      // Muted slate gray for secondary labels
+// Brand colors
+val OrangePrimary = Color(0xFFFF6D00)    // Main active orange
+val BlueSecondary = Color(0xFF1976D2)   // Secondary blue
+val NavyDark = Color(0xFF111E38)        // Navy text / header background
+val LightGrayBg = Color(0xFFF8F9FA)     // Page background
+val WhiteSurface = Color(0xFFFFFFFF)    // Card surface
+val PurpleTertiary = Color(0xFF7B1FA2)  // Purple button/accent
+val TealAccent = Color(0xFF009688)      // Teal button/accent
 
-private val TadkeeraColorScheme = darkColorScheme(
-    primary = RoyalPurple,
-    onPrimary = TextWhite,
-    primaryContainer = CardSlate,
-    onPrimaryContainer = TextWhite,
-    secondary = VividPurple,
-    onSecondary = TextWhite,
-    secondaryContainer = CardSlate,
-    onSecondaryContainer = TextMuted,
-    background = DeepSlateNavy,
-    onBackground = TextWhite,
-    surface = CardSlate,
-    onSurface = TextWhite,
-    surfaceVariant = Color(0xFF334155), // Border outline slate
-    onSurfaceVariant = TextMuted,
-    error = CrimsonRed,
-    onError = TextWhite
+private val LightTadkeeraColorScheme = lightColorScheme(
+    primary = OrangePrimary,
+    onPrimary = Color.White,
+    secondary = BlueSecondary,
+    onSecondary = Color.White,
+    tertiary = PurpleTertiary,
+    onTertiary = Color.White,
+    background = LightGrayBg,
+    onBackground = NavyDark,
+    surface = WhiteSurface,
+    onSurface = NavyDark,
+    surfaceVariant = Color(0xFFECEFF1),
+    onSurfaceVariant = NavyDark,
+    error = Color(0xFFD32F2F),
+    onError = Color.White
 )
 
 @Composable
 fun TadkeeraTheme(
-    darkTheme: Boolean = true, // Force premium dark mode first!
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val customFontFamily = remember {
+        try {
+            // Cairo is a beautiful, highly professional modern Arabic font present in assets
+            FontFamily(
+                Font(
+                    path = "fonts/cairo.ttf",
+                    assetManager = context.assets,
+                    weight = FontWeight.Normal
+                ),
+                Font(
+                    path = "fonts/cairo.ttf",
+                    assetManager = context.assets,
+                    weight = FontWeight.Bold
+                )
+            )
+        } catch (e: Exception) {
+            FontFamily.Default
+        }
+    }
+
+    val baseTypography = androidx.compose.material3.Typography()
+    val typography = androidx.compose.material3.Typography(
+        displayLarge = baseTypography.displayLarge.copy(fontFamily = customFontFamily),
+        displayMedium = baseTypography.displayMedium.copy(fontFamily = customFontFamily),
+        displaySmall = baseTypography.displaySmall.copy(fontFamily = customFontFamily),
+        headlineLarge = baseTypography.headlineLarge.copy(fontFamily = customFontFamily),
+        headlineMedium = baseTypography.headlineMedium.copy(fontFamily = customFontFamily),
+        headlineSmall = baseTypography.headlineSmall.copy(fontFamily = customFontFamily),
+        titleLarge = baseTypography.titleLarge.copy(fontFamily = customFontFamily),
+        titleMedium = baseTypography.titleMedium.copy(fontFamily = customFontFamily),
+        titleSmall = baseTypography.titleSmall.copy(fontFamily = customFontFamily),
+        bodyLarge = baseTypography.bodyLarge.copy(fontFamily = customFontFamily),
+        bodyMedium = baseTypography.bodyMedium.copy(fontFamily = customFontFamily),
+        bodySmall = baseTypography.bodySmall.copy(fontFamily = customFontFamily),
+        labelLarge = baseTypography.labelLarge.copy(fontFamily = customFontFamily),
+        labelMedium = baseTypography.labelMedium.copy(fontFamily = customFontFamily),
+        labelSmall = baseTypography.labelSmall.copy(fontFamily = customFontFamily)
+    )
+
     MaterialTheme(
-        colorScheme = TadkeeraColorScheme,
+        colorScheme = LightTadkeeraColorScheme,
+        typography = typography,
         content = content
     )
 }

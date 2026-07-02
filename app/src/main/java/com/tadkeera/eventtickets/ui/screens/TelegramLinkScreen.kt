@@ -2,6 +2,7 @@ package com.tadkeera.eventtickets.ui.screens
 
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -52,12 +54,21 @@ fun TelegramLinkScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ربط بوت وقناة تليجرام", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Text(
+                        "ربط بوت وقناة تليجرام", 
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Right
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "رجوع")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "رجوع", tint = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF111E38)) // Navy header
             )
         }
     ) { padding ->
@@ -65,58 +76,104 @@ fun TelegramLinkScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(Color(0xFFF8F9FA)) // Crisp Light Grey Bg
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Elegant Info Banner Card
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(4.dp, RoundedCornerShape(16.dp)),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.5.dp, Color(0xFFFFD54F))
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.padding(16.dp), 
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
                     Text(
                         "إعدادات الربط المباشر مع تليجرام ⚡",
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color(0xFFFF6D00),
+                        textAlign = TextAlign.Right,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Text(
                         "أدخل بيانات البوت ومعرف القناة (Channel ID) الخاص بك ليقوم التطبيق برفع النسخ الاحتياطية وتذاكر الـ PDF تلقائياً وفورياً إليها عند حدوث أي تعديل.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp
+                        fontSize = 12.5.sp,
+                        color = Color(0xFF546E7A),
+                        textAlign = TextAlign.Right,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
 
-            OutlinedTextField(
-                value = botToken,
-                onValueChange = { 
-                    botToken = it
-                    isConnectionSuccess = false
-                },
-                label = { Text("توكن البوت (Bot Token)") },
-                placeholder = { Text("8855448849:AAEOMw...") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
+            // Input Fields with beautiful orange outlines
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "توكن البوت (Bot Token)",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF111E38),
+                    fontSize = 14.sp
+                )
+                OutlinedTextField(
+                    value = botToken,
+                    onValueChange = { 
+                        botToken = it
+                        isConnectionSuccess = false
+                    },
+                    placeholder = { Text("8855448849:AAEOMw...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(2.dp, RoundedCornerShape(12.dp)),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color(0xFF111E38),
+                        unfocusedTextColor = Color(0xFF111E38),
+                        focusedBorderColor = Color(0xFFFF6D00),
+                        unfocusedBorderColor = Color(0xFFCFD8DC)
+                    )
+                )
+            }
 
-            OutlinedTextField(
-                value = channelId,
-                onValueChange = { 
-                    channelId = it
-                    isConnectionSuccess = false
-                },
-                label = { Text("آي دي القناة (Channel ID)") },
-                placeholder = { Text("-1004389676098") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    "آي دي القناة (Channel ID)",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF111E38),
+                    fontSize = 14.sp
+                )
+                OutlinedTextField(
+                    value = channelId,
+                    onValueChange = { 
+                        channelId = it
+                        isConnectionSuccess = false
+                    },
+                    placeholder = { Text("-1004389676098") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(2.dp, RoundedCornerShape(12.dp)),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color(0xFF111E38),
+                        unfocusedTextColor = Color(0xFF111E38),
+                        focusedBorderColor = Color(0xFFFF6D00),
+                        unfocusedBorderColor = Color(0xFFCFD8DC)
+                    )
+                )
+            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Custom non-crashing loading feedback animation!
+            // Loading / connection status visual feedback
             if (isConnecting) {
                 var pulse by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) {
@@ -129,11 +186,16 @@ fun TelegramLinkScreen(
                     text = "جاري التحقق من الاتصال بالخادم... 📡",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
-                    color = if (pulse) MaterialTheme.colorScheme.primary else Color.Gray,
-                    textAlign = TextAlign.Center
+                    color = if (pulse) Color(0xFFFF6D00) else Color.Gray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             } else if (isConnectionSuccess) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally, 
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(54.dp)
@@ -143,13 +205,13 @@ fun TelegramLinkScreen(
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
                     }
-                    Text("تم الاتصال والربط بنجاح! ✅", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("تم الاتصال والربط بنجاح! ✅", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Save and Check Connection button
+            // Save and Check Connection button (Vibrant Orange matching screens!)
             Button(
                 onClick = {
                     if (botToken.isBlank() || channelId.isBlank()) {
@@ -197,10 +259,12 @@ fun TelegramLinkScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp)
+                    .height(58.dp)
+                    .shadow(4.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6D00))
             ) {
-                Text("حفظ والتحقق من الاتصال ⚡", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("حفظ والتحقق من الاتصال ⚡", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
             }
         }
     }
