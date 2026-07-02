@@ -114,7 +114,7 @@ fun TelegramLinkScreen(
                 }
             }
 
-            // Input Fields with beautiful orange outlines
+            // Input Fields with fixed complete borders (no clashing shadow/clipping)
             Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     "توكن البوت (Bot Token)",
@@ -129,16 +129,14 @@ fun TelegramLinkScreen(
                         isConnectionSuccess = false
                     },
                     placeholder = { Text("8855448849:AAEOMw...") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(2.dp, RoundedCornerShape(12.dp)),
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color(0xFF111E38),
                         unfocusedTextColor = Color(0xFF111E38),
                         focusedBorderColor = Color(0xFFFF6D00),
-                        unfocusedBorderColor = Color(0xFFCFD8DC)
+                        unfocusedBorderColor = Color(0xFFB0BEC5)
                     )
                 )
             }
@@ -157,16 +155,14 @@ fun TelegramLinkScreen(
                         isConnectionSuccess = false
                     },
                     placeholder = { Text("-1004389676098") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(2.dp, RoundedCornerShape(12.dp)),
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color(0xFF111E38),
                         unfocusedTextColor = Color(0xFF111E38),
                         focusedBorderColor = Color(0xFFFF6D00),
-                        unfocusedBorderColor = Color(0xFFCFD8DC)
+                        unfocusedBorderColor = Color(0xFFB0BEC5)
                     )
                 )
             }

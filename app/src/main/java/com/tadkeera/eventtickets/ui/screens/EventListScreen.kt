@@ -37,16 +37,6 @@ import com.tadkeera.eventtickets.ui.viewmodel.MainViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Helper extension to convert numerals to gorgeous Eastern Arabic numerals (٠-٩)
-fun String.toArabicDigits(): String {
-    var result = this
-    val arabicDigits = charArrayOf('٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩')
-    for (i in 0..9) {
-        result = result.replace(('0' + i).toString(), arabicDigits[i].toString())
-    }
-    return result
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventListScreen(
@@ -292,13 +282,12 @@ fun EventListScreen(
                             color = Color(0xFF111E38),
                             fontSize = 14.sp
                         )
+                        // Fixed rounded outline box problem by removing nested shadows/clipping from text fields
                         OutlinedTextField(
                             value = eventName,
                             onValueChange = { eventName = it },
                             placeholder = { Text("أدخل اسم المناسبة", color = Color(0xFF94A3B8)) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = Color(0xFFFF6D00)),
+                            modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -307,7 +296,7 @@ fun EventListScreen(
                                 focusedContainerColor = Color.White,
                                 unfocusedContainerColor = Color.White,
                                 focusedBorderColor = Color(0xFFFF6D00),
-                                unfocusedBorderColor = Color(0xFFFFD54F)
+                                unfocusedBorderColor = Color(0xFFB0BEC5)
                             )
                         )
 
@@ -318,14 +307,14 @@ fun EventListScreen(
                             color = Color(0xFF111E38),
                             fontSize = 14.sp
                         )
-                        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale("ar"))
+                        val sdf = SimpleDateFormat("d/M/yyyy", Locale.US) // Reverted to standard English numerals as requested!
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { datePickerDialog.show() }
                         ) {
                             OutlinedTextField(
-                                value = sdf.format(Date(eventDate)).toArabicDigits(),
+                                value = sdf.format(Date(eventDate)),
                                 onValueChange = {},
                                 readOnly = true,
                                 enabled = false,
@@ -336,9 +325,7 @@ fun EventListScreen(
                                         tint = Color(0xFFFF6D00)
                                     )
                                 },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = Color(0xFF1976D2)),
+                                modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     disabledTextColor = Color(0xFF111E38),
@@ -438,8 +425,8 @@ fun EventCard(
     onClick: (String) -> Unit,
     onDelete: () -> Unit
 ) {
-    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale("ar"))
-    val dateString = sdf.format(Date(event.eventDate)).toArabicDigits()
+    val sdf = SimpleDateFormat("d/M/yyyy", Locale.US) // English numbers!
+    val dateString = sdf.format(Date(event.eventDate))
     
     Card(
         modifier = Modifier

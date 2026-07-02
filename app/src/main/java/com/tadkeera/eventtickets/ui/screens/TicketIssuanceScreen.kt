@@ -127,109 +127,96 @@ fun TicketIssuanceScreen(
             )
         }
     ) { padding ->
-        Column(
+        // REDESIGNED: Use a single top-level LazyColumn so that the entire page scrolls smoothly up and down!
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .background(Color(0xFFF8F9FA)) // Crisp Light Grey Bg
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                "يرجى تحديد تفاصيل إصدار التذاكر للمناسبة:",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF111E38),
-                textAlign = TextAlign.Right,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Input: Ticket count (Screenshot 7 Custom Style)
-            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+            item {
                 Text(
-                    "عدد التذاكر المراد إصدارها",
+                    "يرجى تحديد تفاصيل إصدار التذاكر للمناسبة:",
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6D00),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-                OutlinedTextField(
-                    value = ticketCountText,
-                    onValueChange = { ticketCountText = it },
-                    placeholder = { Text("مثال: 10، 300...") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = Color(0xFFFF6D00)),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color(0xFF111E38),
-                        unfocusedTextColor = Color(0xFF111E38),
-                        focusedBorderColor = Color(0xFFFF6D00),
-                        unfocusedBorderColor = Color(0xFFFFD54F)
-                    )
+                    color = Color(0xFF111E38),
+                    textAlign = TextAlign.Right,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            // Dropdown: Choose Design (Screenshot 7 Custom Style)
-            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-                Text(
-                    "تصميم التذكرة المستخدم",
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6D00),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-                Box(modifier = Modifier.fillMaxWidth()) {
+            // Input: Ticket count (Fixed clipping outline issue by removing shadows/clips from text fields)
+            item {
+                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+                    Text(
+                        "عدد التذاكر المراد إصدارها",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF6D00),
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
                     OutlinedTextField(
-                        value = selectedDesign?.designName ?: "توليد تلقائي بدون قالب PDF",
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = {
-                            IconButton(onClick = { isDropdownExpanded = !isDropdownExpanded }) {
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "تصميم", tint = Color(0xFFFF6D00))
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { isDropdownExpanded = !isDropdownExpanded }
-                            .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = Color(0xFFFF6D00)),
+                        value = ticketCountText,
+                        onValueChange = { ticketCountText = it },
+                        placeholder = { Text("مثال: 10، 300...") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
                         shape = RoundedCornerShape(12.dp),
-                        enabled = false,
                         colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = Color(0xFF111E38),
-                            disabledBorderColor = Color(0xFFFFD54F),
-                            disabledLabelColor = Color(0xFFFF6D00)
+                            focusedTextColor = Color(0xFF111E38),
+                            unfocusedTextColor = Color(0xFF111E38),
+                            focusedBorderColor = Color(0xFFFF6D00),
+                            unfocusedBorderColor = Color(0xFFB0BEC5)
                         )
                     )
+                }
+            }
 
-                    DropdownMenu(
-                        expanded = isDropdownExpanded,
-                        onDismissRequest = { isDropdownExpanded = false },
-                        modifier = Modifier.fillMaxWidth(0.85f).background(Color.White)
-                    ) {
-                        DropdownMenuItem(
-                            text = { 
-                                Text(
-                                    "توليد تلقائي بدون قالب PDF", 
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF111E38),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    textAlign = TextAlign.Right
-                                ) 
+            // Dropdown: Choose Design
+            item {
+                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+                    Text(
+                        "تصميم التذكرة المستخدم",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF6D00),
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = selectedDesign?.designName ?: "توليد تلقائي بدون قالب PDF",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = {
+                                IconButton(onClick = { isDropdownExpanded = !isDropdownExpanded }) {
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "تصميم", tint = Color(0xFFFF6D00))
+                                }
                             },
-                            onClick = {
-                                selectedDesign = null
-                                isDropdownExpanded = false
-                            }
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isDropdownExpanded = !isDropdownExpanded },
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = false,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = Color(0xFF111E38),
+                                disabledBorderColor = Color(0xFFB0BEC5),
+                                disabledLabelColor = Color(0xFFFF6D00)
+                            )
                         )
-                        designs.forEach { design ->
+
+                        DropdownMenu(
+                            expanded = isDropdownExpanded,
+                            onDismissRequest = { isDropdownExpanded = false },
+                            modifier = Modifier.fillMaxWidth(0.85f).background(Color.White)
+                        ) {
                             DropdownMenuItem(
                                 text = { 
                                     Text(
-                                        design.designName, 
+                                        "توليد تلقائي بدون قالب PDF", 
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF111E38),
                                         modifier = Modifier.fillMaxWidth(),
@@ -237,253 +224,272 @@ fun TicketIssuanceScreen(
                                     ) 
                                 },
                                 onClick = {
-                                    selectedDesign = design
+                                    selectedDesign = null
                                     isDropdownExpanded = false
                                 }
                             )
+                            designs.forEach { design ->
+                                DropdownMenuItem(
+                                    text = { 
+                                        Text(
+                                            design.designName, 
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF111E38),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Right
+                                        ) 
+                                    },
+                                    onClick = {
+                                        selectedDesign = design
+                                        isDropdownExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Guest Name Switch with beautiful soft colors and custom layout (Screenshot 7)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFECEFF1))
-            ) {
-                Row(
+            // Guest Name Switch with beautiful soft colors and custom layout
+            item {
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .shadow(4.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFECEFF1))
                 ) {
-                    Switch(
-                        checked = showGuestName,
-                        onCheckedChange = { showGuestName = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFFFF6D00) // Beautiful orange switch matching Screenshot 7!
-                        )
-                    )
-
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.End
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "إظهار أسماء الضيوف وطباعتها", 
-                            style = MaterialTheme.typography.titleMedium, 
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111E38),
-                            textAlign = TextAlign.Right
+                        Switch(
+                            checked = showGuestName,
+                            onCheckedChange = { showGuestName = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFFFF6D00)
+                            )
                         )
-                        Text(
-                            "قم بتفعيل هذا الخيار لرفع قائمة بالأسماء ودمجها تلقائياً مع التذاكر الصادرة.", 
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF546E7A),
-                            textAlign = TextAlign.Right,
-                            lineHeight = 16.sp
-                        )
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Text(
+                                "إظهار أسماء الضيوف وطباعتها", 
+                                style = MaterialTheme.typography.titleMedium, 
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF111E38),
+                                textAlign = TextAlign.Right
+                            )
+                            Text(
+                                "قم بتفعيل هذا الخيار لرفع قائمة بالأسماء ودمجها تلقائياً مع التذاكر الصادرة.", 
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF546E7A),
+                                textAlign = TextAlign.Right,
+                                lineHeight = 16.sp
+                            )
+                        }
                     }
                 }
             }
 
             // CSV Upload Button
             if (showGuestName) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (guestNamesList.isNotEmpty()) {
-                        Box(
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (guestNamesList.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFF2E7D32), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "مستورد: ${guestNamesList.size} اسم",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                                    type = "text/*"
+                                    addCategory(Intent.CATEGORY_OPENABLE)
+                                }
+                                csvPickerLauncher.launch(intent)
+                            },
                             modifier = Modifier
-                                .background(Color(0xFF2E7D32), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .weight(1.5f)
+                                .shadow(2.dp, RoundedCornerShape(10.dp)),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
                         ) {
-                            Text(
-                                text = "مستورد: ${guestNamesList.size} اسم",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
+                            Text("رفع ملف أسماء الضيوف CSV", fontWeight = FontWeight.Bold)
                         }
                     }
+                }
+            }
 
+            // Large Orange Issuance Action Button
+            item {
+                Spacer(modifier = Modifier.height(6.dp))
+                if (isGenerating) {
+                    var dotCount by remember { mutableStateOf(1) }
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            kotlinx.coroutines.delay(500)
+                            dotCount = (dotCount % 3) + 1
+                        }
+                    }
+                    val dots = ".".repeat(dotCount)
+                    Text(
+                        text = "جاري توليد التذاكر الفريدة وإنشاء ملف PDF$dots ⏳",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF6D00),
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        textAlign = TextAlign.Center
+                    )
+                } else {
                     Button(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                                type = "text/*"
-                                addCategory(Intent.CATEGORY_OPENABLE)
+                            val count = ticketCountText.toIntOrNull()
+                            if (count == null || count <= 0) {
+                                Toast.makeText(context, "الرجاء إدخال عدد تذاكر صحيح أكبر من صفر", Toast.LENGTH_SHORT).show()
+                                return@Button
                             }
-                            csvPickerLauncher.launch(intent)
-                        },
-                        modifier = Modifier
-                            .weight(1.5f)
-                            .shadow(2.dp, RoundedCornerShape(10.dp)),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
-                    ) {
-                        Text("رفع ملف أسماء الضيوف CSV", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Large Orange Issuance Action Button (Screenshot 7 Style)
-            if (isGenerating) {
-                var dotCount by remember { mutableStateOf(1) }
-                LaunchedEffect(Unit) {
-                    while (true) {
-                        kotlinx.coroutines.delay(500)
-                        dotCount = (dotCount % 3) + 1
-                    }
-                }
-                val dots = ".".repeat(dotCount)
-                Text(
-                    text = "جاري توليد التذاكر الفريدة وإنشاء ملف PDF$dots ⏳",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6D00),
-                    modifier = Modifier.padding(14.dp),
-                    textAlign = TextAlign.Center
-                )
-            } else {
-                Button(
-                    onClick = {
-                        val count = ticketCountText.toIntOrNull()
-                        if (count == null || count <= 0) {
-                            Toast.makeText(context, "الرجاء إدخال عدد تذاكر صحيح أكبر من صفر", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-                        isGenerating = true
-                        coroutineScope.launch {
-                            val finalNames = if (showGuestName) guestNamesList else null
-                            viewModel.issueTickets(eventId, count, selectedDesign, finalNames) { file ->
-                                isGenerating = false
-                                if (file != null) {
-                                    Toast.makeText(context, "تم حفظ التذاكر بملف PDF داخلي بنجاح! حملها للذاكرة من الأسفل.", Toast.LENGTH_LONG).show()
-                                } else {
-                                    Toast.makeText(context, "فشل إصدار التذاكر، يرجى المحاولة لاحقاً", Toast.LENGTH_SHORT).show()
+                            isGenerating = true
+                            coroutineScope.launch {
+                                val finalNames = if (showGuestName) guestNamesList else null
+                                viewModel.issueTickets(eventId, count, selectedDesign, finalNames) { file ->
+                                    isGenerating = false
+                                    if (file != null) {
+                                        Toast.makeText(context, "تم حفظ التذاكر بملف PDF داخلي بنجاح! حملها للذاكرة من الأسفل.", Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, "فشل إصدار التذاكر، يرجى المحاولة لاحقاً", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(58.dp)
-                        .shadow(6.dp, RoundedCornerShape(18.dp), spotColor = Color(0xFFFF6D00)),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6D00)) // Bold Orange button
-                ) {
-                    Text("إصدار وتأكيد التذاكر", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(58.dp)
+                            .shadow(6.dp, RoundedCornerShape(18.dp), spotColor = Color(0xFFFF6D00)),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6D00))
+                    ) {
+                        Text("إصدار وتأكيد التذاكر", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            // REPLACED: Heading changed to "ملفات التذاكر" as requested!
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    "ملفات التذاكر",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF111E38),
+                    textAlign = TextAlign.Right,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-            // Divider and section header
-            Text(
-                "ملفات التذاكر الصادرة والمحفوظة داخل التطبيق",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF111E38),
-                textAlign = TextAlign.Right,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // List of generated PDF files with custom designs (Screenshot 7 style)
+            // List of generated PDF files inside the top-level LazyColumn so the whole screen scrolls beautifully!
             if (generatedBatches.isEmpty()) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text("لا توجد ملفات تذاكر صادرة حالياً", color = Color.Gray, fontWeight = FontWeight.Bold)
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text("لا توجد ملفات تذاكر صادرة حالياً", color = Color.Gray, fontWeight = FontWeight.Bold)
+                    }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(generatedBatches) { batch ->
-                        val eventCode = batch.first
-                        val ticketCount = batch.second
-                        
-                        val internalFile = viewModel.getInternalPdfFile(eventCode)
-                        if (internalFile.exists()) {
-                            Card(
+                items(generatedBatches) { batch ->
+                    val eventCode = batch.first
+                    val ticketCount = batch.second
+                    
+                    val internalFile = viewModel.getInternalPdfFile(eventCode)
+                    if (internalFile.exists()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .shadow(4.dp, RoundedCornerShape(18.dp)),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.5.dp, Color(0xFFFFD54F)) // Orange-yellow outline
+                        ) {
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .shadow(4.dp, RoundedCornerShape(18.dp)),
-                                shape = RoundedCornerShape(18.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
-                                border = BorderStroke(1.5.dp, Color(0xFFFFD54F)) // Orange-yellow outline matching Screenshot 7
+                                    .padding(14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        // 1. Share Button (Orange Outline/Border Style)
-                                        Button(
-                                            onClick = {
-                                                if (internalFile.exists()) {
-                                                    val uri = FileProvider.getUriForFile(
-                                                        context,
-                                                        "${context.packageName}.fileprovider",
-                                                        internalFile
-                                                    )
-                                                    val intent = Intent(Intent.ACTION_SEND).apply {
-                                                        type = "application/pdf"
-                                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                    }
-                                                    context.startActivity(Intent.createChooser(intent, "مشاركة الملف"))
-                                                } else {
-                                                    Toast.makeText(context, "الملف الداخلي غير موجود", Toast.LENGTH_SHORT).show()
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    // 1. Share Button
+                                    Button(
+                                        onClick = {
+                                            if (internalFile.exists()) {
+                                                val uri = FileProvider.getUriForFile(
+                                                    context,
+                                                    "${context.packageName}.fileprovider",
+                                                    internalFile
+                                                )
+                                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "application/pdf"
+                                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                                 }
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6D00), contentColor = Color.White),
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.height(44.dp)
-                                        ) {
-                                            Text("مشاركة", fontWeight = FontWeight.Bold)
-                                        }
-
-                                        // 2. Download Button (Navy Style)
-                                        Button(
-                                            onClick = {
-                                                viewModel.downloadPdfToSharedStorage(eventCode, event?.eventName ?: "مناسبة") { success, file ->
-                                                    if (success && file != null) {
-                                                        Toast.makeText(context, "تم تحميل الملف بنجاح إلى: Tadkeera/${event?.eventName}/${eventCode}.pdf", Toast.LENGTH_LONG).show()
-                                                    } else {
-                                                        Toast.makeText(context, "فشل تحميل الملف، يرجى التحقق من صلاحيات التخزين", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111E38), contentColor = Color.White),
-                                            shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.height(44.dp)
-                                        ) {
-                                            Text("تحميل", fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-
-                                    Column(
-                                        horizontalAlignment = Alignment.End,
-                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                                context.startActivity(Intent.createChooser(intent, "مشاركة الملف"))
+                                            } else {
+                                                Toast.makeText(context, "الملف الداخلي غير موجود", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6D00), contentColor = Color.White),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.height(44.dp)
                                     ) {
-                                        Text("كود الملف: $eventCode.pdf", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF111E38))
-                                        Text("العدد: $ticketCount تذكرة مدمجة", style = MaterialTheme.typography.bodySmall, color = Color(0xFF546E7A))
+                                        Text("مشاركة", fontWeight = FontWeight.Bold)
                                     }
+
+                                    // 2. Download Button
+                                    Button(
+                                        onClick = {
+                                            viewModel.downloadPdfToSharedStorage(eventCode, event?.eventName ?: "مناسبة") { success, file ->
+                                                if (success && file != null) {
+                                                    Toast.makeText(context, "تم تحميل الملف بنجاح إلى: Tadkeera/${event?.eventName}/${eventCode}.pdf", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    Toast.makeText(context, "فشل تحميل الملف، يرجى التحقق من صلاحيات التخزين", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111E38), contentColor = Color.White),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.height(44.dp)
+                                    ) {
+                                        Text("تحميل", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text("كود الملف: $eventCode.pdf", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF111E38))
+                                    // Reverted to English numbers as requested!
+                                    Text("العدد: $ticketCount تذكرة مدمجة", style = MaterialTheme.typography.bodySmall, color = Color(0xFF546E7A))
                                 }
                             }
                         }

@@ -61,24 +61,27 @@ fun TadkeeraTheme(
         }
     }
 
-    val baseTypography = androidx.compose.material3.Typography()
-    val typography = androidx.compose.material3.Typography(
-        displayLarge = baseTypography.displayLarge.copy(fontFamily = customFontFamily),
-        displayMedium = baseTypography.displayMedium.copy(fontFamily = customFontFamily),
-        displaySmall = baseTypography.displaySmall.copy(fontFamily = customFontFamily),
-        headlineLarge = baseTypography.headlineLarge.copy(fontFamily = customFontFamily),
-        headlineMedium = baseTypography.headlineMedium.copy(fontFamily = customFontFamily),
-        headlineSmall = baseTypography.headlineSmall.copy(fontFamily = customFontFamily),
-        titleLarge = baseTypography.titleLarge.copy(fontFamily = customFontFamily),
-        titleMedium = baseTypography.titleMedium.copy(fontFamily = customFontFamily),
-        titleSmall = baseTypography.titleSmall.copy(fontFamily = customFontFamily),
-        bodyLarge = baseTypography.bodyLarge.copy(fontFamily = customFontFamily),
-        bodyMedium = baseTypography.bodyMedium.copy(fontFamily = customFontFamily),
-        bodySmall = baseTypography.bodySmall.copy(fontFamily = customFontFamily),
-        labelLarge = baseTypography.labelLarge.copy(fontFamily = customFontFamily),
-        labelMedium = baseTypography.labelMedium.copy(fontFamily = customFontFamily),
-        labelSmall = baseTypography.labelSmall.copy(fontFamily = customFontFamily)
-    )
+    // Optimize performance: Cache the entire Typography object using remember so it isn't recreated on every recomposition!
+    val typography = remember(customFontFamily) {
+        val baseTypography = androidx.compose.material3.Typography()
+        androidx.compose.material3.Typography(
+            displayLarge = baseTypography.displayLarge.copy(fontFamily = customFontFamily),
+            displayMedium = baseTypography.displayMedium.copy(fontFamily = customFontFamily),
+            displaySmall = baseTypography.displaySmall.copy(fontFamily = customFontFamily),
+            headlineLarge = baseTypography.headlineLarge.copy(fontFamily = customFontFamily),
+            headlineMedium = baseTypography.headlineMedium.copy(fontFamily = customFontFamily),
+            headlineSmall = baseTypography.headlineSmall.copy(fontFamily = customFontFamily),
+            titleLarge = baseTypography.titleLarge.copy(fontFamily = customFontFamily),
+            titleMedium = baseTypography.titleMedium.copy(fontFamily = customFontFamily),
+            titleSmall = baseTypography.titleSmall.copy(fontFamily = customFontFamily),
+            bodyLarge = baseTypography.bodyLarge.copy(fontFamily = customFontFamily),
+            bodyMedium = baseTypography.bodyMedium.copy(fontFamily = customFontFamily),
+            bodySmall = baseTypography.bodySmall.copy(fontFamily = customFontFamily),
+            labelLarge = baseTypography.labelLarge.copy(fontFamily = customFontFamily),
+            labelMedium = baseTypography.labelMedium.copy(fontFamily = customFontFamily),
+            labelSmall = baseTypography.labelSmall.copy(fontFamily = customFontFamily)
+        )
+    }
 
     MaterialTheme(
         colorScheme = LightTadkeeraColorScheme,

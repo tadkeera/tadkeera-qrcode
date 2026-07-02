@@ -114,8 +114,9 @@ fun OrdersListScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text("رمز الطلب: ${order.eventCode}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF111E38))
-                                    Text("عدد التذاكر: ${order.ticketCount}".toArabicDigits(), fontSize = 16.sp, color = Color(0xFF546E7A))
-                                    Text("الممسوحة: ${order.scannedCount}".toArabicDigits(), fontSize = 16.sp, color = Color(0xFF546E7A))
+                                    // Reverted to English numbers as requested!
+                                    Text("عدد التذاكر: ${order.ticketCount}", fontSize = 16.sp, color = Color(0xFF546E7A))
+                                    Text("الممسوحة: ${order.scannedCount}", fontSize = 16.sp, color = Color(0xFF546E7A))
 
                                     Spacer(modifier = Modifier.height(4.dp))
 
@@ -199,10 +200,11 @@ fun OrdersListScreen(
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Text("تقرير فحص طلب التذاكر", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFF111E38))
-                                    Text("إجمالي تذاكر الطلب: ${order.ticketCount}".toArabicDigits(), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF546E7A))
+                                    // Reverted to English numbers as requested!
+                                    Text("إجمالي تذاكر الطلب: ${order.ticketCount}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF546E7A))
                                     val forgeryCount = order.tickets.count { it.scanCount > 1 }
                                     Text(
-                                        "حاولوا تزوير/إعادة استخدام التذاكر: $forgeryCount زائر".toArabicDigits(), 
+                                        "حاولوا تزوير/إعادة استخدام التذاكر: $forgeryCount زائر", 
                                         color = if (forgeryCount > 0) Color.Red else Color(0xFF2E7D32), 
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp
@@ -232,11 +234,12 @@ fun OrdersListScreen(
                                         horizontalAlignment = Alignment.Start,
                                         verticalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        Text("تذكرة رقم: ${ticket.ticketNumber}".toArabicDigits(), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF111E38))
+                                        // Reverted to English numbers as requested!
+                                        Text("تذكرة رقم: ${ticket.ticketNumber}", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF111E38))
                                         
                                         when {
                                             ticket.scanCount > 1 -> {
-                                                Text("مكرر ، تم المسح : ${ticket.scanCount} مرات ❌".toArabicDigits(), color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                Text("مكرر ، تم المسح : ${ticket.scanCount} مرات ❌", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                             }
                                             ticket.scanCount == 1 -> {
                                                 Text("✅ مقبول", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 13.sp)
