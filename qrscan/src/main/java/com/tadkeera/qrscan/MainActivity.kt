@@ -1086,6 +1086,7 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
+                            else -> {}
                         }
                     }
                 },
