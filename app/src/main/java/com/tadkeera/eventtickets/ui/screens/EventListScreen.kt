@@ -4,11 +4,11 @@ import android.app.DatePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -81,18 +81,18 @@ fun EventListScreen(
                 title = { 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_tadkeera_logo),
                             contentDescription = null,
-                            modifier = Modifier.size(38.dp)
+                            modifier = Modifier.size(42.dp)
                         )
                         Text(
                             "تذكرة (Tadkeera)",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = MaterialTheme.colorScheme.primary
+                            fontWeight = FontWeight.Black,
+                            fontSize = 22.sp,
+                            color = Color.White
                         )
                     }
                 },
@@ -101,14 +101,16 @@ fun EventListScreen(
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "الإعدادات والنسخ الاحتياطي",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = Color(0xFF6366F1), // Royal purple tint!
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     IconButton(onClick = { navController.navigate("data_sync") }) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "تصدير واستيراد البيانات",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = Color(0xFF6366F1), // Royal purple tint!
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 },
@@ -118,11 +120,12 @@ fun EventListScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                shape = RoundedCornerShape(16.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                shape = RoundedCornerShape(24.dp), // Elegant 24px radius!
+                containerColor = Color(0xFF4F46E5), // Royal Purple accent!
+                contentColor = Color.White,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "إنشاء مناسبة جديدة")
+                Icon(Icons.Default.Add, contentDescription = "إنشاء مناسبة جديدة", modifier = Modifier.size(28.dp))
             }
         }
     ) { padding ->
@@ -130,35 +133,29 @@ fun EventListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.background
-                        )
-                    )
-                )
+                .background(Color(0xFF0F172A)) // Elegant deep slate background!
         ) {
-            // Elegant Welcome Banner
+            // Premium Glassmorphism Welcome Banner (24px radius, subtle border)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                shape = RoundedCornerShape(24.dp), // Elegant 24px radius!
+                colors = CardDefaults.cardColors(containerColor = Color(0x1F4F46E5)), // Soft glassmorphic transparent purple!
+                border = BorderStroke(1.dp, Color(0x3F6366F1)) // Subtle neon purple outline!
             ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         "أهلاً بك في نظام تذكرة 🌟",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.primary
+                        fontSize = 19.sp,
+                        color = Color.White
                     )
                     Text(
                         "قم بإنشاء وتصميم وإدارة تذاكر مناسباتك بطريقة عصرية مذهلة وآمنة بالكامل أوفلاين.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp
+                        fontSize = 12.5.sp,
+                        color = Color(0xFF94A3B8), // Sleek muted gray text
+                        lineHeight = 20.sp
                     )
                 }
             }
@@ -167,8 +164,8 @@ fun EventListScreen(
                 "المناسبات الحالية النشطة:",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onBackground
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                color = Color.White
             )
 
             if (events.isEmpty()) {
@@ -186,12 +183,12 @@ fun EventListScreen(
                             "لا توجد مناسبات حالياً 📂",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Gray
+                            color = Color(0xFF94A3B8)
                         )
                         Text(
                             "انقر على الزر (+) بالأسفل لإضافة مناسبتك الأولى وبدء التصميم!",
                             fontSize = 12.sp,
-                            color = Color.LightGray,
+                            color = Color(0xFF475569),
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 32.dp)
                         )
@@ -203,7 +200,7 @@ fun EventListScreen(
                         .fillMaxWidth()
                         .weight(1f),
                     contentPadding = PaddingValues(bottom = 80.dp, start = 16.dp, end = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(events) { event ->
                         EventCard(
@@ -219,7 +216,7 @@ fun EventListScreen(
             }
         }
 
-        // Add Event Dialog
+        // Add Event Dialog with Premium Glass style
         if (showAddDialog) {
             AlertDialog(
                 onDismissRequest = { 
@@ -231,7 +228,8 @@ fun EventListScreen(
                     Text(
                         text = "إنشاء مناسبة جديدة",
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                 },
                 text = {
@@ -245,7 +243,13 @@ fun EventListScreen(
                             label = { Text("اسم المناسبة") },
                             placeholder = { Text("مثال: حفل تخرج، مؤتمر...") },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF6366F1),
+                                unfocusedBorderColor = Color(0xFF334155)
+                            )
                         )
 
                         val sdf = SimpleDateFormat("dd/MM/yyyy", Locale("ar"))
@@ -262,10 +266,9 @@ fun EventListScreen(
                                 enabled = false,
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                                    disabledBorderColor = MaterialTheme.colorScheme.outline,
-                                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    disabledTextColor = Color.White,
+                                    disabledBorderColor = Color(0xFF334155),
+                                    disabledLabelColor = Color(0xFF94A3B8)
                                 )
                             )
                         }
@@ -281,7 +284,8 @@ fun EventListScreen(
                                 eventDate = System.currentTimeMillis()
                             }
                         },
-                        enabled = eventName.isNotBlank()
+                        enabled = eventName.isNotBlank(),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("إضافة")
                     }
@@ -294,7 +298,7 @@ fun EventListScreen(
                             eventDate = System.currentTimeMillis()
                         }
                     ) {
-                        Text("إلغاء")
+                        Text("إلغاء", color = Color(0xFF94A3B8))
                     }
                 }
             )
@@ -308,11 +312,11 @@ fun EventListScreen(
                     Text(
                         "تأكيد حذف المناسبة؟ ⚠️",
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
+                        color = Color(0xFFEF4444)
                     )
                 },
                 text = {
-                    Text("هل أنت متأكد من رغبتك في حذف مناسبة [${eventToDelete!!.eventName}] وكل التذاكر الصادرة، وملفات الـ PDF، والتصاميم المعتمدة التابعة لها كلياً؟ هذا الإجراء نهائي ولا يمكن التراجع عنه.")
+                    Text("هل أنت متأكد من رغبتك في حذف مناسبة [${eventToDelete!!.eventName}] وكل التذاكر الصادرة، وملفات الـ PDF، والتصاميم المعتمدة التابعة لها كلياً؟ هذا الإجراء نهائي ولا يمكن التراجع عنه.", color = Color(0xFF94A3B8))
                 },
                 confirmButton = {
                     Button(
@@ -321,14 +325,15 @@ fun EventListScreen(
                             showDeleteDialog = false
                             eventToDelete = null
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("نعم، احذف كلياً")
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteDialog = false; eventToDelete = null }) {
-                        Text("إلغاء")
+                        Text("إلغاء", color = Color(0xFF94A3B8))
                     }
                 }
             )
@@ -346,16 +351,16 @@ fun EventCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(24.dp)) // Elegant 24px radius!
             .clickable { onClick(event.eventId) },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)), // Premium dark slate card
+        border = BorderStroke(1.dp, Color(0x3F6366F1)) // Glass purple border!
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -364,13 +369,13 @@ fun EventCard(
                     text = event.eventName,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color.White
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "تاريخ البدء: ${sdf.format(Date(event.eventDate))}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF94A3B8)
                 )
             }
 
@@ -378,13 +383,13 @@ fun EventCard(
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), CircleShape)
-                    .size(40.dp)
+                    .background(Color(0x1FEF4444), CircleShape) // Translucent red background
+                    .size(42.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "حذف المناسبة كلياً",
-                    tint = MaterialTheme.colorScheme.error,
+                    tint = Color(0xFFEF4444),
                     modifier = Modifier.size(20.dp)
                 )
             }

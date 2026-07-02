@@ -1,37 +1,46 @@
 package com.tadkeera.eventtickets.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Blue700 = Color(0xFF1976D2)
-private val Orange700 = Color(0xFFFF6F00)
-private val Pink800 = Color(0xFFAD1457)
-private val Pink400 = Color(0xFFEC407A)
+// Premium, Elegant Dark Mode Colors matching 2026 UX/UI Trends!
+val DeepSlateNavy = Color(0xFF0F172A)  // Deep slate background
+val CardSlate = Color(0xFF1E293B)      // Slightly lighter slate for card surfaces
+val RoyalPurple = Color(0xFF4F46E5)    // Indigo/Royal purple primary accent
+val VividPurple = Color(0xFF6366F1)    // Vibrant indigo for highlight states
+val EmeraldGreen = Color(0xFF10B981)   // Emerald green success indicator
+val CrimsonRed = Color(0xFFEF4444)     // Crimson red delete/error indicator
+val TextWhite = Color(0xFFFFFFFF)      // Pure white text
+val TextMuted = Color(0xFF94A3B8)      // Muted slate gray for secondary labels
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Blue700,
-    secondary = Orange700,
-    tertiary = Pink800
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Blue700,
-    secondary = Orange700,
-    tertiary = Pink400
+private val TadkeeraColorScheme = darkColorScheme(
+    primary = RoyalPurple,
+    onPrimary = TextWhite,
+    primaryContainer = CardSlate,
+    onPrimaryContainer = TextWhite,
+    secondary = VividPurple,
+    onSecondary = TextWhite,
+    secondaryContainer = CardSlate,
+    onSecondaryContainer = TextMuted,
+    background = DeepSlateNavy,
+    onBackground = TextWhite,
+    surface = CardSlate,
+    onSurface = TextWhite,
+    surfaceVariant = Color(0xFF334155), // Border outline slate
+    onSurfaceVariant = TextMuted,
+    error = CrimsonRed,
+    onError = TextWhite
 )
 
 @Composable
 fun TadkeeraTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true, // Force premium dark mode first!
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = TadkeeraColorScheme,
         content = content
     )
 }
