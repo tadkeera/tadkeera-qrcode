@@ -441,7 +441,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun generateQRCodeImage(text: String, width: Int = 150, height: Int = 150): Image {
+    private fun generateQRCodeImage(text: String, width: Int = 300, height: Int = 300): Image {
         val hints = java.util.HashMap<com.google.zxing.EncodeHintType, Any>()
         hints[com.google.zxing.EncodeHintType.MARGIN] = 0 // Remove white quiet zone margins!
         
@@ -457,15 +457,31 @@ class MainViewModel @Inject constructor(
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
         
-        // Draw the digital anti-forgery Void Pantograph on the background!
+        // 1. Draw the digital anti-forgery Void Pantograph on the background!
         drawVoidPantograph(canvas, width, height)
         
-        // Overlay the black QR matrix blocks with High-Frequency Micro-Dot Steganography (Stochastic Screening)!
+        // 2. Draw Concentric Circular Moire lines to trigger extreme optical sensor interference!
+        val moirePaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.argb(35, 120, 120, 120) // Light gray thin circular lines
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 1f
+            isAntiAlias = true
+        }
+        val centerX = width / 2f
+        val centerY = height / 2f
+        for (r in 10 until (width * 1.5).toInt() step 6) {
+            canvas.drawCircle(centerX, centerY, r.toFloat(), moirePaint)
+        }
+        
+        // 3. Overlay the QR matrix with Chromatic Bayer-Interference & Stochastic Halftoning!
+        val colorNavy = android.graphics.Color.rgb(11, 15, 46)     // Deep Navy Blue
+        val colorCrimson = android.graphics.Color.rgb(198, 40, 40) // Vibrant Crimson Red
+        
         for (x in 0 until width) {
             for (y in 0 until height) {
                 if (bitMatrix.get(x, y)) {
                     // Check if coordinate falls within one of the three Finder Patterns (7x7 modules in corners)
-                    // This keeps finder patterns solid/sharp for instant focusing & identification.
+                    // This keeps finder patterns solid/sharp to guarantee instantaneous scanning by authorized app.
                     val isFinderPattern = (x < width * 8 / 25 && y < height * 8 / 25) || // Top-left
                                           (x > width * 17 / 25 && y < height * 8 / 25) || // Top-right
                                           (x < width * 8 / 25 && y > height * 17 / 25)   // Bottom-left
@@ -473,10 +489,16 @@ class MainViewModel @Inject constructor(
                     if (isFinderPattern) {
                         bitmap.setPixel(x, y, android.graphics.Color.BLACK)
                     } else {
-                        // Stochastic high-frequency micro-dot screen.
-                        // Alternating micro-pixels at high frequency (checkerboard stochastic halftone pattern)
+                        // High-frequency Chromatic Bayer-Interference grid.
+                        // Alternates microscopic deep navy and crimson dots.
+                        // Extremely sharp to native print, but collapses into illegible chromatic noise
+                        // on a secondary camera due to Bayer spatial interpolation!
                         if ((x + y) % 2 == 0) {
-                            bitmap.setPixel(x, y, android.graphics.Color.BLACK)
+                            if (x % 2 == 0) {
+                                bitmap.setPixel(x, y, colorNavy)
+                            } else {
+                                bitmap.setPixel(x, y, colorCrimson)
+                            }
                         } else {
                             // Leave background untouched. This allows the Void Pantograph dot patterns 
                             // to integrate directly and seamlessly inside the non-drawn bits of the QR modules!
@@ -592,7 +614,7 @@ class MainViewModel @Inject constructor(
                 val overContent = stamper.getOverContent(pageNum)
                 
                 // Draw QR Code using zero margins generator
-                val qrImage = generateQRCodeImage(ticket.qrCodeData, 150, 150)
+                val qrImage = generateQRCodeImage(ticket.qrCodeData, 300, 300)
                 
                 val pageSize = reader2.getPageSize(pageNum)
                 val pdfWidth = pageSize.width
@@ -709,7 +731,7 @@ class MainViewModel @Inject constructor(
                 }
                 
                 // Add QR Code using native generator
-                val qrImage = generateQRCodeImage(ticket.qrCodeData, 150, 150)
+                val qrImage = generateQRCodeImage(ticket.qrCodeData, 300, 300)
                 qrImage.scaleAbsolute(150f, 150f)
                 qrImage.alignment = com.itextpdf.text.Element.ALIGN_CENTER
                 document.add(qrImage)
