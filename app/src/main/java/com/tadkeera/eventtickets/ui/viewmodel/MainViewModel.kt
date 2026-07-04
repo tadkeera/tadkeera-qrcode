@@ -460,11 +460,28 @@ class MainViewModel @Inject constructor(
         // Draw the digital anti-forgery Void Pantograph on the background!
         drawVoidPantograph(canvas, width, height)
         
-        // Overlay the black QR matrix blocks
+        // Overlay the black QR matrix blocks with High-Frequency Micro-Dot Steganography (Stochastic Screening)!
         for (x in 0 until width) {
             for (y in 0 until height) {
                 if (bitMatrix.get(x, y)) {
-                    bitmap.setPixel(x, y, android.graphics.Color.BLACK)
+                    // Check if coordinate falls within one of the three Finder Patterns (7x7 modules in corners)
+                    // This keeps finder patterns solid/sharp for instant focusing & identification.
+                    val isFinderPattern = (x < width * 8 / 25 && y < height * 8 / 25) || // Top-left
+                                          (x > width * 17 / 25 && y < height * 8 / 25) || // Top-right
+                                          (x < width * 8 / 25 && y > height * 17 / 25)   // Bottom-left
+                    
+                    if (isFinderPattern) {
+                        bitmap.setPixel(x, y, android.graphics.Color.BLACK)
+                    } else {
+                        // Stochastic high-frequency micro-dot screen.
+                        // Alternating micro-pixels at high frequency (checkerboard stochastic halftone pattern)
+                        if ((x + y) % 2 == 0) {
+                            bitmap.setPixel(x, y, android.graphics.Color.BLACK)
+                        } else {
+                            // Leave background untouched. This allows the Void Pantograph dot patterns 
+                            // to integrate directly and seamlessly inside the non-drawn bits of the QR modules!
+                        }
+                    }
                 }
             }
         }
