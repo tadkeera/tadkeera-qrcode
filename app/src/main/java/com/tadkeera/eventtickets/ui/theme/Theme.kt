@@ -1,6 +1,7 @@
 package com.tadkeera.eventtickets.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -36,8 +37,27 @@ private val LightTadkeeraColorScheme = lightColorScheme(
     onError = Color.White
 )
 
+// Premium, elegant dark theme color scheme matching user screens but in Dark/Night mode!
+private val DarkTadkeeraColorScheme = darkColorScheme(
+    primary = OrangePrimary,
+    onPrimary = Color.White,
+    secondary = Color(0xFF64B5F6), // Lighter blue for dark mode readability
+    onSecondary = Color.Black,
+    tertiary = Color(0xFFBA68C8), // Lighter purple for dark mode
+    onTertiary = Color.White,
+    background = Color(0xFF0F172A), // Dark slate/navy background
+    onBackground = Color.White,
+    surface = Color(0xFF1E293B), // Dark slate card surface
+    onSurface = Color.White,
+    surfaceVariant = Color(0xFF334155),
+    onSurfaceVariant = Color(0xFF94A3B8),
+    error = Color(0xFFEF5350),
+    onError = Color.White
+)
+
 @Composable
 fun TadkeeraTheme(
+    isDarkMode: Boolean = false, // Toggle dynamically!
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -83,8 +103,10 @@ fun TadkeeraTheme(
         )
     }
 
+    val colorScheme = if (isDarkMode) DarkTadkeeraColorScheme else LightTadkeeraColorScheme
+
     MaterialTheme(
-        colorScheme = LightTadkeeraColorScheme,
+        colorScheme = colorScheme,
         typography = typography,
         content = content
     )

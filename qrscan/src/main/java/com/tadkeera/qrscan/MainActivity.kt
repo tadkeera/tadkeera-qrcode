@@ -33,6 +33,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -146,7 +148,7 @@ data class P2PMessage(
 )
 
 @Composable
-fun TadkeeraCompanionTheme(content: @Composable () -> Unit) {
+fun TadkeeraCompanionTheme(isDarkMode: Boolean = false, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val customFontFamily = remember {
         try {
@@ -188,15 +190,27 @@ fun TadkeeraCompanionTheme(content: @Composable () -> Unit) {
         )
     }
 
-    val colorScheme = androidx.compose.material3.lightColorScheme(
-        primary = Color(0xFFFF6D00), // Orange
-        secondary = Color(0xFF1976D2), // Blue
-        tertiary = Color(0xFF7B1FA2), // Purple
-        background = Color(0xFFF8F9FA), // Off-white
-        surface = Color.White,
-        onBackground = Color(0xFF111E38),
-        onSurface = Color(0xFF111E38)
-    )
+    val colorScheme = if (isDarkMode) {
+        androidx.compose.material3.darkColorScheme(
+            primary = Color(0xFFFF6D00), // Orange
+            secondary = Color(0xFF64B5F6), // Lighter blue
+            tertiary = Color(0xFFBA68C8), // Lighter purple
+            background = Color(0xFF0F172A), // Dark slate
+            surface = Color(0xFF1E293B),
+            onBackground = Color.White,
+            onSurface = Color.White
+        )
+    } else {
+        androidx.compose.material3.lightColorScheme(
+            primary = Color(0xFFFF6D00), // Orange
+            secondary = Color(0xFF1976D2), // Blue
+            tertiary = Color(0xFF7B1FA2), // Purple
+            background = Color(0xFFF8F9FA), // Off-white
+            surface = Color.White,
+            onBackground = Color(0xFF111E38),
+            onSurface = Color(0xFF111E38)
+        )
+    }
 
     androidx.compose.material3.MaterialTheme(
         colorScheme = colorScheme,
@@ -215,12 +229,20 @@ class MainActivity : ComponentActivity() {
         requestPermissionsOnStartup()
 
         setContent {
-            TadkeeraCompanionTheme {
+            var isDarkMode by remember { mutableStateOf(sharedPreferences.getBoolean("dark_mode", false)) }
+            TadkeeraCompanionTheme(isDarkMode = isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    CompanionScannerApp(sharedPreferences)
+                    CompanionScannerApp(
+                        sharedPreferences = sharedPreferences,
+                        onThemeToggle = {
+                            val newMode = !isDarkMode
+                            isDarkMode = newMode
+                            sharedPreferences.edit().putBoolean("dark_mode", newMode).apply()
+                        }
+                    )
                 }
             }
         }
@@ -260,7 +282,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
+fun CompanionScannerApp(sharedPreferences: SharedPreferences, onThemeToggle: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val gson = Gson()
@@ -637,48 +659,66 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
 
     if (event == null) {
         // Welcome and Import Screen
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_tadkeera_logo),
-                contentDescription = null,
-                modifier = Modifier.size(140.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "QR SCAN",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                "تذكرة - القارئ المصاحب المساعد",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.Gray,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            Button(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                        type = "*/*"
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                    }
-                    importFileLauncher.launch(intent)
-                },
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Theme Toggle Button in top-right corner of Welcome Screen
+            val isDark = MaterialTheme.colorScheme.background == Color(0xFF0F172A)
+            IconButton(
+                onClick = onThemeToggle,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp)
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
             ) {
-                Text("استيراد بيانات المناسبة والعمل أوفلاين (IMPORT)", fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = if (isDark) Icons.Default.WbSunny else Icons.Default.NightsStay,
+                    contentDescription = "تغيير الثيم",
+                    tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_tadkeera_logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(140.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "QR SCAN",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "تذكرة - القارئ المصاحب المساعد",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(48.dp))
+
+                Button(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "*/*"
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                        }
+                        importFileLauncher.launch(intent)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("استيراد بيانات المناسبة والعمل أوفلاين (IMPORT)", fontWeight = FontWeight.Bold)
+                }
             }
         }
     } else {
@@ -686,8 +726,25 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("كاشف المناسبة: ${event?.eventName}") },
+                    title = { 
+                        Text(
+                            "كاشف المناسبة: ${event?.eventName}", 
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Right
+                        ) 
+                    },
                     actions = {
+                        // Theme Toggle Button (Sun / Moon)
+                        val isDark = MaterialTheme.colorScheme.background == Color(0xFF0F172A)
+                        IconButton(onClick = onThemeToggle) {
+                            Icon(
+                                imageVector = if (isDark) Icons.Default.WbSunny else Icons.Default.NightsStay,
+                                contentDescription = "تغيير الثيم",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+
                         IconButton(onClick = { showSettings = true }) {
                             Icon(Icons.Default.Settings, contentDescription = "الإعدادات")
                         }

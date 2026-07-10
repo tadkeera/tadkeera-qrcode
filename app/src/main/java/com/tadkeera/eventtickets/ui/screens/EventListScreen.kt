@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ConfirmationNumber
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -110,34 +112,56 @@ fun EventListScreen(
                 contentAlignment = Alignment.CenterStart
             ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween // Spread elements beautifully!
                 ) {
-                    // Settings Icon
-                    IconButton(
-                        onClick = { navController.navigate("backup_settings") },
-                        modifier = Modifier
-                            .background(Color(0xFF2E3D52), CircleShape)
-                            .size(42.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "الإعدادات والنسخ الاحتياطي",
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        // Settings Icon
+                        IconButton(
+                            onClick = { navController.navigate("backup_settings") },
+                            modifier = Modifier
+                                .background(Color(0xFF2E3D52), CircleShape)
+                                .size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "الإعدادات والنسخ الاحتياطي",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // Share Icon
+                        IconButton(
+                            onClick = { navController.navigate("data_sync") },
+                            modifier = Modifier
+                                .background(Color(0xFF2E3D52), CircleShape)
+                                .size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "تصدير واستيراد البيانات",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
 
-                    // Share Icon
+                    // Theme Toggle Button (صباحي / مسائي - Sun / Moon Icon)
+                    val isDark by viewModel.isDarkMode.collectAsState()
                     IconButton(
-                        onClick = { navController.navigate("data_sync") },
+                        onClick = { viewModel.toggleTheme() },
                         modifier = Modifier
                             .background(Color(0xFF2E3D52), CircleShape)
                             .size(42.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "تصدير واستيراد البيانات",
+                            imageVector = if (isDark) Icons.Default.WbSunny else Icons.Default.NightsStay,
+                            contentDescription = "تغيير الثيم",
                             tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )

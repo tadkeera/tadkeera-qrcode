@@ -17,6 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -37,12 +39,15 @@ class MainActivity : ComponentActivity() {
         requestPermissionsOnStartup()
 
         setContent {
-            TadkeeraTheme {
+            val viewModel: MainViewModel = hiltViewModel()
+            val isDarkMode by viewModel.isDarkMode.collectAsState()
+            
+            TadkeeraTheme(isDarkMode = isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    TadkeeraApp()
+                    TadkeeraApp(viewModel)
                 }
             }
         }
@@ -83,9 +88,8 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun TadkeeraApp() {
+fun TadkeeraApp(viewModel: MainViewModel) {
     val navController = rememberNavController()
-    val viewModel: MainViewModel = hiltViewModel()
 
     NavHost(navController = navController, startDestination = "event_list") {
         composable("event_list") {

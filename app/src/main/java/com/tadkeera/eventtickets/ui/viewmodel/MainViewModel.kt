@@ -107,6 +107,16 @@ class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
+    private val themePrefs = context.getSharedPreferences("TadkeeraThemePrefs", Context.MODE_PRIVATE)
+    private val _isDarkMode = MutableStateFlow(themePrefs.getBoolean("dark_mode", false))
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+
+    fun toggleTheme() {
+        val newMode = !_isDarkMode.value
+        _isDarkMode.value = newMode
+        themePrefs.edit().putBoolean("dark_mode", newMode).apply()
+    }
+
     val events: StateFlow<List<Event>> = repository.allEvents
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
