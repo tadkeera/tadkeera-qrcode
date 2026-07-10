@@ -623,8 +623,8 @@ class MainViewModel @Inject constructor(
                 val pageNum = i + 1
                 val overContent = stamper.getOverContent(pageNum)
                 
-                // Draw QR Code using zero margins generator
-                val qrImage = generateQRCodeImage(ticket.qrCodeData, 300, 300)
+                // Draw QR Code using zero margins generator (High Resolution for Anti-Forgery)
+                val qrImage = generateQRCodeImage(ticket.qrCodeData, 800, 800)
                 
                 val pageSize = reader2.getPageSize(pageNum)
                 val pdfWidth = pageSize.width
@@ -636,6 +636,31 @@ class MainViewModel @Inject constructor(
                 val qW = design.qrCodeWidth * pdfWidth
                 val qH = design.qrCodeHeight * pdfHeight
                 
+                // === رسم نمط غيوش (Guilloche Pattern) كفكتور خلف الباركود ===
+                overContent.saveState()
+                // استخدام لون أزرق ميتاليك فاتح جداً بشفافية
+                overContent.setColorStroke(com.itextpdf.text.BaseColor(21, 101, 192, 50)) 
+                overContent.setLineWidth(0.2f) // خط رفيع جداً (شعرة)
+                val centerX = qX + (qW / 2f)
+                val centerY = qY + (qH / 2f)
+                
+                // رسم منحنيات رياضية متداخلة (تأثير سبيروغراف/غيوش)
+                for (angle in 0 until 360 step 5) {
+                    val rad = Math.toRadians(angle.toDouble())
+                    val r1 = qW * 0.6f
+                    val r2 = qW * 0.3f
+                    
+                    val endX = centerX + (Math.cos(rad) * r1).toFloat()
+                    val endY = centerY + (Math.sin(rad) * r1).toFloat()
+                    
+                    val ctrlX = centerX + (Math.cos(rad + 0.5) * r2).toFloat()
+                    val ctrlY = centerY + (Math.sin(rad + 0.5) * r2).toFloat()
+                    overContent.moveTo(centerX, centerY)
+                    overContent.curveTo(ctrlX, ctrlY, endX, endY)
+                }
+                overContent.stroke()
+                overContent.restoreState()
+
                 qrImage.setAbsolutePosition(qX, qY)
                 qrImage.scaleAbsolute(qW, qH)
                 
@@ -643,6 +668,28 @@ class MainViewModel @Inject constructor(
                 qrImage.setRotationDegrees(design.qrCodeRotation)
                 
                 overContent.addImage(qrImage)
+
+                // === إضافة النص الميكروسكوبي (Micro-text) كفكتور نقي ===
+                overContent.saveState()
+                val microFont = com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
+                overContent.beginText()
+                overContent.setFontAndSize(microFont, 0.8f) // حجم خط ميكروسكوبي (أقل من 1 pt)
+                overContent.setColorFill(com.itextpdf.text.BaseColor.DARK_GRAY) // لون رمادي داكن
+                val microTextStr = "${ticket.eventCode}-${ticket.ticketNumber} TADKEERA SECURE "
+                // تكرار النص ليغطي المسافة
+                val repeatedText = microTextStr.repeat(30) 
+                // رسم الإطار الميكروسكوبي حول الـ QR Code
+                val offset = 2f // مسافة الإطار عن الباركود
+                // الحد السفلي
+                overContent.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, repeatedText, qX, qY - offset, 0f)
+                // الحد العلوي
+                overContent.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, repeatedText, qX, qY + qH + offset, 0f)
+                // الحد الأيسر (دوران 90 درجة)
+                overContent.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, repeatedText, qX - offset, qY, 90f)
+                // الحد الأيمن (دوران 90 درجة)
+                overContent.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, repeatedText, qX + qW + offset, qY, 90f)
+                overContent.endText()
+                overContent.restoreState()
                 
                 // Draw Event Code & Ticket Number at exactly designed positions
                 val ecBoxW = design.eventCodeWidth * pdfWidth
@@ -740,8 +787,8 @@ class MainViewModel @Inject constructor(
                     document.add(pName)
                 }
                 
-                // Add QR Code using native generator
-                val qrImage = generateQRCodeImage(ticket.qrCodeData, 300, 300)
+                // Add QR Code using native generator (High Resolution for Anti-Forgery)
+                val qrImage = generateQRCodeImage(ticket.qrCodeData, 800, 800)
                 qrImage.scaleAbsolute(150f, 150f)
                 qrImage.alignment = com.itextpdf.text.Element.ALIGN_CENTER
                 document.add(qrImage)
