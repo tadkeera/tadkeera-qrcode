@@ -1,16 +1,22 @@
-name: Android CI
+name: Android CI & Releases
 
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - "v*" # Triggers on v1.1.9, v1.0.5, etc.
   pull_request:
     branches: [ "main" ]
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    
     - name: set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -28,10 +34,45 @@ jobs:
         fi
         ./gradlew assembleDebug
 
-    - name: Upload APKs
+    - name: Rename APKs for Release
+      run: |
+        mkdir -p release-apks
+        cp app/build/outputs/apk/debug/app-debug.apk release-apks/tadkeera_app_v1.1.9.apk
+        cp qrscan/build/outputs/apk/debug/qrscan-debug.apk release-apks/qrscan_v1.0.5_app.apk
+
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: compiled-apks
         path: |
-          app/build/outputs/apk/debug/app-debug.apk
-          qrscan/build/outputs/apk/debug/qrscan-debug.apk
+          release-apks/tadkeera_app_v1.1.9.apk
+          release-apks/qrscan_v1.0.5_app.apk
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          release-apks/tadkeera_app_v1.1.9.apk
+          release-apks/qrscan_v1.0.5_app.apk
+        draft: false
+        prerelease: false
+        name: Release ${{ github.ref_name }}
+        body: |
+          مرحباً بك في الإصدار الرسمي المحدّث والمطوّر لنظام تذكرة (TADKEERA) 🎉
+          
+          ### 📱 التطبيقات المرفقة في هذا الإصدار:
+          1. **تطبيق تذكرة لإدارة الفعاليات الأصلي (`tadkeera_app_v1.1.9.apk`):**
+             * حماية مجهرية متجهة (Pure Vector) تمنع التزوير كلياً.
+             * حل جذري ونهائي لمشكلة استهلاك الذاكرة والانهيارات (OOM) عند رفع قوالب الـ PDF الضخمة.
+             * تفعيل الترقية المباشرة الفوقية للنسخة **V 1.1.9**.
+          
+          2. **تطبيق الماسح المعتمد للمنظمين (`qrscan_v1.0.5_app.apk`):**
+             * دمج ميزة مغير المظهر الصباحي والمسائي السلس والأنيق ☀️/🌙.
+             * تفعيل خوارزمية تحليل بكسلات حافة الكود (Edge Sharpness Analyzer) لرفض التذاكر المنسوخة والمصورة كلياً.
+             * تفعيل الترقية المباشرة الفوقية للنسخة **V 1.0.5**.
+          
+          قم بتحميل وتثبيت التحديثات مباشرة فوق نسخك السابقة واستمتع بأقصى درجات الحماية والأداء السريع! 🌟
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
