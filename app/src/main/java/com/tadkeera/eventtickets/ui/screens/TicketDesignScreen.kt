@@ -161,13 +161,24 @@ fun TicketDesignScreen(
                     outputStream.close()
                     selectedPdfFile = tempFile
 
-                    // Render first page as bitmap at high quality (3x scale)
+                    // Render first page as bitmap at safe optimized quality to prevent OutOfMemoryError
                     val fileDescriptor = ParcelFileDescriptor.open(tempFile, ParcelFileDescriptor.MODE_READ_ONLY)
                     val pdfRenderer = PdfRenderer(fileDescriptor)
                     if (pdfRenderer.pageCount > 0) {
                         val page = pdfRenderer.openPage(0)
-                        val scale = 3
-                        val bitmap = Bitmap.createBitmap(page.width * scale, page.height * scale, Bitmap.Config.ARGB_8888)
+                        
+                        // Dynamically scale down preview bitmap if PDF dimensions are too large, avoiding OutOfMemoryError!
+                        val maxPreviewWidth = 1080f
+                        val scale = if (page.width > 0) {
+                            (maxPreviewWidth / page.width).coerceAtMost(2.5f).coerceAtLeast(0.5f)
+                        } else {
+                            1.5f
+                        }
+                        
+                        val scaledWidth = (page.width * scale).toInt().coerceAtLeast(1)
+                        val scaledHeight = (page.height * scale).toInt().coerceAtLeast(1)
+                        
+                        val bitmap = Bitmap.createBitmap(scaledWidth, scaledHeight, Bitmap.Config.ARGB_8888)
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                         pdfBitmap = bitmap
                         page.close()
