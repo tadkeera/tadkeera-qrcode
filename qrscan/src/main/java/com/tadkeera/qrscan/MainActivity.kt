@@ -59,6 +59,7 @@ import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -342,6 +343,24 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences, onThemeToggle: () 
     // Scan Results
     var scanResult by remember { mutableStateOf<ScanResult>(ScanResult.Idle) }
     var showResultDialog by remember { mutableStateOf(false) }
+
+    // Auto-advance: the result popup closes by itself after 1.5 s and the camera resumes
+    // scanning the next ticket without any tap.
+    val resultAutoCloseMs = 1500L
+    LaunchedEffect(showResultDialog, scanResult) {
+        if (showResultDialog) {
+            delay(resultAutoCloseMs)
+            showResultDialog = false
+            scanResult = ScanResult.Idle
+        }
+    }
+
+    // Cooldown for the SAME code only: a ticket that is still in front of the camera after the
+    // popup closes must not be re-read instantly (it would be reported as a duplicate).
+    // Different tickets are never blocked by this.
+    val sameCodeCooldownMs = 4000L
+    val lastHandledCode = remember { mutableStateOf("") }
+    val lastHandledAt = remember { mutableStateOf(0L) }
 
     val toneGenerator = remember { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100) }
 
@@ -788,9 +807,15 @@ fun CompanionScannerApp(sharedPreferences: SharedPreferences, onThemeToggle: () 
                                     val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                                     barcodeScanner.process(image)
                                         .addOnSuccessListener { barcodes ->
-                                            if (barcodes.isNotEmpty() && !showResultDialog) {
-                                                val qrCode = barcodes.first().rawValue ?: ""
-                                                
+                                            val qrCode = barcodes.firstOrNull()?.rawValue ?: ""
+                                            val nowMs = System.currentTimeMillis()
+                                            val isRepeatOfLast = qrCode == lastHandledCode.value &&
+                                                    (nowMs - lastHandledAt.value) < sameCodeCooldownMs
+
+                                            if (qrCode.isNotEmpty() && !showResultDialog && !isRepeatOfLast) {
+                                                lastHandledCode.value = qrCode
+                                                lastHandledAt.value = nowMs
+
                                                 if (!TicketCryptography.verifyTicketSignature(qrCode)) {
                                                     scanResult = ScanResult.Invalid
                                                     showResultDialog = true
