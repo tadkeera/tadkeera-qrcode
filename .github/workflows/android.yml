@@ -37,24 +37,27 @@ jobs:
     - name: Rename APKs for Release
       run: |
         mkdir -p release-apks
-        cp app/build/outputs/apk/debug/app-debug.apk release-apks/tadkeera_app_v1.1.9.apk
-        cp qrscan/build/outputs/apk/debug/qrscan-debug.apk release-apks/qrscan_v1.0.5_app.apk
+        # Versions are read from build.gradle so file names always match the build
+        APP_VER=$(grep -m1 'versionName' app/build.gradle | sed -E 's/.*"([^"]+)".*/\1/')
+        QR_VER=$(grep -m1 'versionName' qrscan/build.gradle | sed -E 's/.*"([^"]+)".*/\1/')
+        echo "Main=$APP_VER QRScan=$QR_VER"
+        cp app/build/outputs/apk/debug/app-debug.apk "release-apks/tadkeera_app_v${APP_VER}.apk"
+        cp qrscan/build/outputs/apk/debug/qrscan-debug.apk "release-apks/qrscan_v${QR_VER}_app.apk"
+        ls -la release-apks
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: compiled-apks
         path: |
-          release-apks/tadkeera_app_v1.1.9.apk
-          release-apks/qrscan_v1.0.5_app.apk
+          release-apks/*.apk
 
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          release-apks/tadkeera_app_v1.1.9.apk
-          release-apks/qrscan_v1.0.5_app.apk
+          release-apks/*.apk
         draft: false
         prerelease: false
         name: Release ${{ github.ref_name }}
