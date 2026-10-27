@@ -55,7 +55,10 @@ data class TicketDesign(
     val guestNameWidth: Float = 0.4f,
     val guestNameHeight: Float = 0.08f,
     val eventCodeWeight: String = "bold",
-    val guestNameWeight: String = "bold"
+    val guestNameWeight: String = "bold",
+    // Pure-vector micro-text security frame around the QR code (on/off per design)
+    @androidx.room.ColumnInfo(defaultValue = "1")
+    val qrSecurityFrameEnabled: Boolean = true
 )
 
 @Entity(tableName = "guest_names")

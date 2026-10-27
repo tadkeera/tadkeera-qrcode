@@ -24,7 +24,10 @@ object DatabaseModule {
             "tadkeera_db"
         )
         .setJournalMode(androidx.room.RoomDatabase.JournalMode.TRUNCATE)
-        .addMigrations(com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_4_5)
+        .addMigrations(
+            com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_4_5,
+            com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_5_6
+        )
         .fallbackToDestructiveMigration()
         .build()
     }

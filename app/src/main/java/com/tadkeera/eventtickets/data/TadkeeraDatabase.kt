@@ -15,7 +15,7 @@ import com.tadkeera.eventtickets.data.entities.*
         GuestName::class,
         SyncQueueItem::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class TadkeeraDatabase : RoomDatabase() {
@@ -38,6 +38,16 @@ abstract class TadkeeraDatabase : RoomDatabase() {
                         "`title` TEXT NOT NULL, " +
                         "`qrCodeData` TEXT NOT NULL, " +
                         "`timestamp` INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        // Adds the per-design toggle for the QR micro-text security frame.
+        // Existing designs keep their data and default to enabled (1).
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `ticket_designs` ADD COLUMN `qrSecurityFrameEnabled` INTEGER NOT NULL DEFAULT 1"
                 )
             }
         }

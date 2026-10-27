@@ -116,6 +116,8 @@ fun TicketDesignScreen(
     var qrH by remember { mutableStateOf(0.2f) }
     var qrCodeRotation by remember { mutableStateOf(0f) }
     var isQrActive by remember { mutableStateOf(true) }
+    // Micro-text security frame around the QR code (pure vector, on/off per design)
+    var qrSecurityFrameEnabled by remember { mutableStateOf(true) }
 
     // Event Code Settings
     var codeX by remember { mutableStateOf(0.1f) }
@@ -262,6 +264,49 @@ fun TicketDesignScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
+
+                    // 0. QR Security Frame toggle (micro-text around the QR code only)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.5.dp, Color(0xFFFF6D00))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "الإطار الأمني حول الباركود",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color(0xFFFF6D00)
+                                )
+                                Text(
+                                    if (qrSecurityFrameEnabled)
+                                        "مفعّل: يُرسم نص أمني مجهري (TADKEERA SECURE) يحيط بمربع الباركود فقط."
+                                    else
+                                        "متوقف: لن يُرسم الإطار الأمني حول الباركود في التذاكر.",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF546E7A)
+                                )
+                            }
+                            Switch(
+                                checked = qrSecurityFrameEnabled,
+                                onCheckedChange = { qrSecurityFrameEnabled = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFFFF6D00)
+                                )
+                            )
+                        }
+                    }
 
                     // 1. Permanent Styling Card for Event Code & Ticket Number (دائم الظهور!)
                     Card(
@@ -1064,7 +1109,8 @@ fun TicketDesignScreen(
                                     guestNameWidth = guestW,
                                     guestNameHeight = guestH,
                                     eventCodeWeight = codeWeight,
-                                    guestNameWeight = guestWeight
+                                    guestNameWeight = guestWeight,
+                                    qrSecurityFrameEnabled = qrSecurityFrameEnabled
                                 )
                                 showSaveDialog = false
                                 designName = ""

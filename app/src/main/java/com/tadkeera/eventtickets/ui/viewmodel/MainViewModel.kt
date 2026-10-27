@@ -175,7 +175,8 @@ class MainViewModel @Inject constructor(
         guestNameWidth: Float = 0.4f,
         guestNameHeight: Float = 0.08f,
         eventCodeWeight: String = "bold",
-        guestNameWeight: String = "bold"
+        guestNameWeight: String = "bold",
+        qrSecurityFrameEnabled: Boolean = true
     ) {
         viewModelScope.launch {
             val design = TicketDesign(
@@ -203,7 +204,8 @@ class MainViewModel @Inject constructor(
                 guestNameWidth = guestNameWidth,
                 guestNameHeight = guestNameHeight,
                 eventCodeWeight = eventCodeWeight,
-                guestNameWeight = guestNameWeight
+                guestNameWeight = guestNameWeight,
+                qrSecurityFrameEnabled = qrSecurityFrameEnabled
             )
             repository.addDesign(design)
             backupDatabase()
@@ -586,6 +588,67 @@ class MainViewModel @Inject constructor(
         return img
     }
 
+    /**
+     * Draws a pure-vector micro-text frame tightly around the QR code box.
+     * The frame lives in the QR's own (rotated) coordinate system, so it follows the QR
+     * when the design rotates it. Each side is filled only up to its own length, so the
+     * text never runs beyond the QR area.
+     */
+    private fun drawQrSecurityFrame(
+        cb: com.itextpdf.text.pdf.PdfContentByte,
+        font: com.itextpdf.text.pdf.BaseFont,
+        qX: Float, qY: Float, qW: Float, qH: Float,
+        rotationDeg: Float,
+        unit: String
+    ) {
+        val size = 0.8f      // micro font size (below 1 pt)
+        val offset = 2f      // gap between QR edge and text baseline
+        val horizontalText = fitTextToLength(font, unit, size, qW + 2 * offset)
+        val verticalText = fitTextToLength(font, unit, size, qH + 2 * offset)
+        if (horizontalText.isEmpty() && verticalText.isEmpty()) return
+
+        val rad = Math.toRadians(rotationDeg.toDouble())
+        val cos = Math.cos(rad).toFloat()
+        val sin = Math.sin(rad).toFloat()
+
+        cb.saveState()
+        // Origin at the QR's lower-left corner, rotated with the QR
+        cb.concatCTM(cos, sin, -sin, cos, qX, qY)
+        cb.beginText()
+        cb.setFontAndSize(font, size)
+        cb.setColorFill(com.itextpdf.text.BaseColor.DARK_GRAY)
+        // Bottom and top edges
+        cb.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, horizontalText, -offset, -offset, 0f)
+        cb.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, horizontalText, -offset, qH + offset, 0f)
+        // Left and right edges (rotated 90 degrees)
+        cb.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, verticalText, -offset, -offset, 90f)
+        cb.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, verticalText, qW + offset, -offset, 90f)
+        cb.endText()
+        cb.restoreState()
+    }
+
+    /** Returns the longest prefix of the repeated [unit] whose width fits in [maxLength] points. */
+    private fun fitTextToLength(
+        font: com.itextpdf.text.pdf.BaseFont,
+        unit: String,
+        size: Float,
+        maxLength: Float
+    ): String {
+        if (unit.isEmpty() || maxLength <= 0f) return ""
+        val sb = StringBuilder()
+        var width = 0f
+        var i = 0
+        while (i < 10_000) {
+            val ch = unit[i % unit.length]
+            val w = font.getWidthPoint(ch.toString(), size)
+            if (width + w > maxLength) break
+            sb.append(ch)
+            width += w
+            i++
+        }
+        return sb.toString()
+    }
+
     private fun generatePdfTickets(
         tickets: List<Ticket>,
         templateFile: File,
@@ -617,6 +680,9 @@ class MainViewModel @Inject constructor(
             // 2. Open single PdfStamper over the cloned blank pages, injecting QR code and text on each page
             val reader2 = PdfReader(tempMultiPageFile.absolutePath)
             val stamper = PdfStamper(reader2, FileOutputStream(outputFile))
+            val secureFrameFont = com.itextpdf.text.pdf.BaseFont.createFont(
+                com.itextpdf.text.pdf.BaseFont.HELVETICA, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED
+            )
             
             for (i in 0 until tickets.size) {
                 val ticket = tickets[i]
@@ -669,28 +735,17 @@ class MainViewModel @Inject constructor(
                 
                 overContent.addImage(qrImage)
 
-                // === إضافة النص الميكروسكوبي (Micro-text) كفكتور نقي ===
-                overContent.saveState()
-                val microFont = com.itextpdf.text.pdf.BaseFont.createFont(com.itextpdf.text.pdf.BaseFont.HELVETICA, com.itextpdf.text.pdf.BaseFont.CP1252, com.itextpdf.text.pdf.BaseFont.NOT_EMBEDDED)
-                overContent.beginText()
-                overContent.setFontAndSize(microFont, 0.8f) // حجم خط ميكروسكوبي (أقل من 1 pt)
-                overContent.setColorFill(com.itextpdf.text.BaseColor.DARK_GRAY) // لون رمادي داكن
-                val microTextStr = "${ticket.eventCode}-${ticket.ticketNumber} TADKEERA SECURE "
-                // تكرار النص ليغطي المسافة
-                val repeatedText = microTextStr.repeat(30) 
-                // رسم الإطار الميكروسكوبي حول الـ QR Code
-                val offset = 2f // مسافة الإطار عن الباركود
-                // الحد السفلي
-                overContent.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, repeatedText, qX, qY - offset, 0f)
-                // الحد العلوي
-                overContent.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, repeatedText, qX, qY + qH + offset, 0f)
-                // الحد الأيسر (دوران 90 درجة)
-                overContent.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, repeatedText, qX - offset, qY, 90f)
-                // الحد الأيمن (دوران 90 درجة)
-                overContent.showTextAligned(com.itextpdf.text.Element.ALIGN_LEFT, repeatedText, qX + qW + offset, qY, 90f)
-                overContent.endText()
-                overContent.restoreState()
-                
+                // === إطار النص الميكروسكوبي (Micro-text) حول الباركود فقط (قابل للتفعيل/الإيقاف من التصميم) ===
+                if (design.qrSecurityFrameEnabled) {
+                    drawQrSecurityFrame(
+                        overContent,
+                        secureFrameFont,
+                        qX, qY, qW, qH,
+                        design.qrCodeRotation,
+                        "${ticket.eventCode}-${ticket.ticketNumber} TADKEERA SECURE "
+                    )
+                }
+
                 // Draw Event Code & Ticket Number at exactly designed positions
                 val ecBoxW = design.eventCodeWidth * pdfWidth
                 val ecBoxH = design.eventCodeHeight * pdfHeight
