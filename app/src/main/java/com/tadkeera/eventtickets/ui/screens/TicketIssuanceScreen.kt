@@ -232,7 +232,7 @@ fun TicketIssuanceScreen(
                                 DropdownMenuItem(
                                     text = { 
                                         Text(
-                                            design.designName, 
+                                            if (design.hasLegacySharedTemplate()) "${design.designName}  ⚠️ يلزم إعادة إنشائه" else design.designName, 
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFF111E38),
                                             modifier = Modifier.fillMaxWidth(),
@@ -370,6 +370,15 @@ fun TicketIssuanceScreen(
                                 Toast.makeText(context, "الرجاء إدخال عدد تذاكر صحيح أكبر من صفر", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
+                            val chosen = selectedDesign
+                            if (chosen != null && chosen.hasLegacySharedTemplate()) {
+                                Toast.makeText(
+                                    context,
+                                    "هذا التصميم أُنشئ بنسخة سابقة وقالبه غير موثوق. أنشئ التصميم من جديد برفع ملف PDF مرة أخرى.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                return@Button
+                            }
                             isGenerating = true
                             coroutineScope.launch {
                                 val finalNames = if (showGuestName) guestNamesList else null
@@ -499,3 +508,9 @@ fun TicketIssuanceScreen(
         }
     }
 }
+
+/** Legacy designs were saved with the shared temporary template file, which was overwritten by later uploads. */
+private const val LEGACY_SHARED_TEMPLATE_NAME = "temp_ticket_template.pdf"
+
+private fun TicketDesign.hasLegacySharedTemplate(): Boolean =
+    File(pdfTemplatePath).name == LEGACY_SHARED_TEMPLATE_NAME

@@ -179,10 +179,13 @@ class MainViewModel @Inject constructor(
         qrSecurityFrameEnabled: Boolean = true
     ) {
         viewModelScope.launch {
+            // Each design gets its OWN copy of the template. Without this, every design pointed
+            // to the same temporary file and the last uploaded template overwrote all earlier ones.
+            val storedTemplatePath = withContext(Dispatchers.IO) { copyTemplateToDesignStorage(templatePath) }
             val design = TicketDesign(
                 eventId = eventId,
                 designName = name,
-                pdfTemplatePath = templatePath,
+                pdfTemplatePath = storedTemplatePath,
                 qrCodeX = qrCodeX,
                 qrCodeY = qrCodeY,
                 qrCodeWidth = qrCodeWidth,
@@ -211,6 +214,15 @@ class MainViewModel @Inject constructor(
             backupDatabase()
             uploadBackupToTelegram()
         }
+    }
+
+    private fun copyTemplateToDesignStorage(sourcePath: String): String {
+        val source = File(sourcePath)
+        if (!source.exists()) return sourcePath
+        val dir = File(context.filesDir, "Tadkeera/Templates").apply { if (!exists()) mkdirs() }
+        val target = File(dir, "template_${System.currentTimeMillis()}_${UUID.randomUUID()}.pdf")
+        source.copyTo(target, overwrite = true)
+        return target.absolutePath
     }
 
     fun deleteOrder(eventCode: String) {

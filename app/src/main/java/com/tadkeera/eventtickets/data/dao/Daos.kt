@@ -55,7 +55,7 @@ interface TicketDao {
 
 @Dao
 interface TicketDesignDao {
-    @Query("SELECT * FROM ticket_designs WHERE eventId = :eventId")
+    @Query("SELECT * FROM ticket_designs WHERE eventId = :eventId ORDER BY designId ASC")
     fun getDesignsForEvent(eventId: String): Flow<List<TicketDesign>>
 
     @Insert
