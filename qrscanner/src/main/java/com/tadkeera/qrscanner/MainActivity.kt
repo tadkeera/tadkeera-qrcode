@@ -235,7 +235,7 @@ private fun ScannerScreen(
             ) { Text("تصدير", fontSize = 13.sp) }
             Box(modifier = Modifier.weight(1f)) {
                 Button(onClick = { modeMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (vm.mode == Mode.ENTRY) "وضع: دخول" else "وضع: خروج", fontSize = 13.sp)
+                    Text(if (vm.scanMode == Mode.ENTRY) "وضع: دخول" else "وضع: خروج", fontSize = 13.sp)
                 }
                 DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }) {
                     DropdownMenuItem(text = { Text("دخول") }, onClick = { vm.setMode(Mode.ENTRY); modeMenu = false })

@@ -27,7 +27,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     var operatorName by mutableStateOf(prefs.getString("operator", "") ?: "")
         private set
     var p2pMode by mutableStateOf(prefs.getString("p2p", "STANDALONE") ?: "STANDALONE")
-    var mode by mutableStateOf(Mode.ENTRY)
+    var scanMode by mutableStateOf(Mode.ENTRY)
     var stats by mutableStateOf<Stats?>(null)
         private set
     /** The result popup. Null means the camera is ready for the next ticket. */
@@ -115,7 +115,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
 
-        val verdict = ScanEngine.evaluate(b, state, qr, mode, now, operatorName)
+        val verdict = ScanEngine.evaluate(b, state, qr, scanMode, now, operatorName)
         store.saveState(state)
         refreshStats()
         lastVerdict = verdict
@@ -137,7 +137,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setMode(newMode: Mode) {
-        mode = newMode
+        scanMode = newMode
     }
 
     fun setP2P(value: String) {
