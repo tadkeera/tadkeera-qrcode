@@ -86,7 +86,7 @@ private enum class Screen { LOGIN, SCANNER, QUERY, SETTINGS }
 @Composable
 private fun ScannerRoot() {
     val vm: ScannerViewModel = viewModel()
-    var screen by rememberSaveable { mutableStateOf(Screen.LOGIN) }
+    var screen by rememberSaveable { mutableStateOf(if (vm.sessionRestored) Screen.SCANNER else Screen.LOGIN) }
     when (screen) {
         Screen.LOGIN -> LoginScreen(vm) { screen = Screen.SCANNER }
         Screen.SCANNER -> ScannerScreen(
@@ -174,7 +174,7 @@ private fun LoginScreen(vm: ScannerViewModel, onLoggedIn: () -> Unit) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = ORANGE)
-                ) { Text(if (busy) "جاري التحقق..." else "استيراد", fontWeight = FontWeight.Bold) }
+                ) { Text(if (busy) "جاري التحقق..." else "تفعيل", fontWeight = FontWeight.Bold) }
             }
         }
     }

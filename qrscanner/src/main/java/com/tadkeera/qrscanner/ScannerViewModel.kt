@@ -66,8 +66,31 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
     private var clearJob: Job? = null
     private var noticeJob: Job? = null
 
+    /** True when the app starts with a valid saved login (the user must not log in again). */
+    var sessionRestored = false
+        private set
+
     init {
+        sessionRestored = restoreSession()
         refreshStats()
+    }
+
+    /**
+     * The login lasts until the user logs out, even if the app was closed.
+     * It is dropped only if the event has expired or the device clock was tampered with.
+     */
+    private fun restoreSession(): Boolean {
+        if (!prefs.getBoolean(KEY_SESSION, false)) return false
+        val b = bundle ?: return false
+        if (!state.hasClockOffset) return false
+        val now = TrustedClock.now(state)
+        if (now == null || now > b.endDate) {
+            prefs.edit().putBoolean(KEY_SESSION, false).apply()
+            return false
+        }
+        store.saveState(state)
+        startNetwork()
+        return true
     }
 
     private fun onMain(block: () -> Unit) {
@@ -126,13 +149,15 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         state.activatedCode = b.activationCode
         store.saveState(state)
         operatorName = user.name
-        prefs.edit().putString("operator", user.name).apply()
+        prefs.edit().putString("operator", user.name).putBoolean(KEY_SESSION, true).apply()
         startNetwork()
         return null
     }
 
+    /** Ends the login. This is the only way the saved session is cleared. */
     fun logout() {
         stopNetwork()
+        prefs.edit().putBoolean(KEY_SESSION, false).apply()
     }
 
     // ---------------- Camera controls ----------------
@@ -418,6 +443,7 @@ class ScannerViewModel(app: Application) : AndroidViewModel(app) {
         const val ROLE_STANDALONE = "STANDALONE"
         const val ROLE_ORGANIZER = "ORGANIZER"
         const val ROLE_HOST = "HOST"
+        private const val KEY_SESSION = "logged_in"
         private const val RESULT_AUTO_CLOSE_MS = 1500L
         private const val SAME_CODE_COOLDOWN_MS = 4000L
     }
