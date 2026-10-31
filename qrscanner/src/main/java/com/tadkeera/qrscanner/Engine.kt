@@ -89,7 +89,8 @@ data class Stats(val total: Int, val everEntered: Int, val inside: Int, val forg
 
 object ScanEngine {
     fun isInside(state: ScanState, qr: String): Boolean {
-        val last = state.scans.lastOrNull { it.qr == qr } ?: return false
+        // "DUP" rows are attempts only and never change whether the ticket is inside.
+        val last = state.scans.lastOrNull { it.qr == qr && it.type != "DUP" } ?: return false
         return last.type == "IN"
     }
 
@@ -106,6 +107,8 @@ object ScanEngine {
             Mode.ENTRY -> {
                 if (inside) {
                     val lastEntry = state.scans.last { it.qr == qr && it.type == "IN" }.ts
+                    // Every repeated entry attempt is recorded with its time (shown in query and report).
+                    state.scans.add(ScanEntry(qr, "DUP", now, operator))
                     Verdict.Duplicate(ticket, lastEntry)
                 } else {
                     state.scans.add(ScanEntry(qr, "IN", now, operator))
@@ -128,8 +131,10 @@ object ScanEngine {
         val inside = HashSet<String>()
         for (s in state.scans) {
             if (!bundle.ticketsByQr.containsKey(s.qr)) continue
-            if (s.type == "IN") entered.add(s.qr)
-            if (s.type == "IN") inside.add(s.qr) else inside.remove(s.qr)
+            when (s.type) {
+                "IN" -> { entered.add(s.qr); inside.add(s.qr) }
+                "OUT" -> inside.remove(s.qr)
+            }
         }
         return Stats(
             total = bundle.tickets.size,

@@ -111,12 +111,24 @@ object AttendanceReport {
         val attended = sorted.filter { inByQr.containsKey(it.qrCodeData) }
         val absent = sorted.filter { !inByQr.containsKey(it.qrCodeData) }
 
-        // ---- 1. Forgery attempts
-        val forgeryRows = forgeries.sortedBy { it.timestamp }.map {
-            listOf(dateFmt.format(it.timestamp), it.preview, it.reason)
+        // ---- 1. Forgery attempts and repeated-entry attempts (one row per attempt, with its time)
+        data class Attempt(val ts: Long, val code: String, val name: String, val reason: String)
+        val ticketByQr = tickets.associateBy { it.qrCodeData }
+        val attempts = forgeries.map { Attempt(it.timestamp, it.preview, "-", it.reason) } +
+            scans.filter { it.type == "DUP" }.map { s ->
+                val t = ticketByQr[s.qrCodeData]
+                Attempt(
+                    s.timestamp,
+                    t?.let { "${it.eventCode} - ${it.ticketNumber}" } ?: "-",
+                    t?.guestName?.ifEmpty { "-" } ?: "-",
+                    "تكرار دخول لتذكرة دخلت مسبقاً"
+                )
+            }
+        val attemptRows = attempts.sortedBy { it.ts }.map {
+            listOf(dateFmt.format(it.ts), it.code, it.name, it.reason)
         }
-        table(pager, "1) محاولات التزوير (${forgeries.size})",
-            listOf("الوقت", "الكود", "السبب"), listOf(120f, 110f, 293f), forgeryRows)
+        table(pager, "1) الذين حاولوا التزوير أو تكرار الدخول (${attempts.size})",
+            listOf("الوقت", "كود التذكرة", "الاسم", "السبب"), listOf(120f, 110f, 130f, 163f), attemptRows)
 
         // ---- 2. Attended
         val attendedRows = attended.mapIndexed { index, t ->

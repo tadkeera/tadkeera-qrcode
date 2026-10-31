@@ -469,18 +469,35 @@ private fun QueryScreen(vm: ScannerViewModel, onBack: () -> Unit) {
                     lines = emptyList()
                 } else {
                     val timeline = vm.timelineOf(ticket)
+                    val firstIn = timeline.firstOrNull { it.type == "IN" }
+                    val repeats = timeline.count { it.type == "DUP" }
                     result = "رقم التذكرة: ${ticket.ticketNumber}" +
                         (if (ticket.guestName.isNotEmpty()) " - ${ticket.guestName}" else "") +
-                        "\nعدد الحركات: ${timeline.size}"
-                    lines = timeline.map { (if (it.type == "IN") "دخول" else "خروج") + " — " + fmtTime(it.ts) + " — " + it.operator }
-                        .ifEmpty { listOf("لم تُسجَّل أي حركة لهذه التذكرة.") }
+                        "\nكود التذكرة: ${ticket.eventCode} - ${ticket.ticketNumber}" +
+                        "\nأول دخول: " + (firstIn?.let { fmtTime(it.ts) } ?: "لم يُسجَّل دخول") +
+                        "\nمحاولات تكرار الدخول: $repeats"
+                    lines = timeline.map {
+                        val label = when (it.type) {
+                            "IN" -> "دخول"
+                            "OUT" -> "خروج"
+                            else -> "محاولة تكرار دخول"
+                        }
+                        "$label — ${fmtTime(it.ts)} — ${it.operator}"
+                    }.ifEmpty { listOf("لم تُسجَّل أي حركة لهذه التذكرة.") }
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("استعلام") }
 
         result?.let { Text(it, fontWeight = FontWeight.Bold, color = NAVY) }
-        lines.forEach { Text(it, color = if (it.startsWith("دخول")) GREEN else if (it.startsWith("خروج")) RED else NAVY) }
+        lines.forEach {
+            Text(it, color = when {
+                it.startsWith("دخول") -> GREEN
+                it.startsWith("خروج") -> NAVY
+                it.startsWith("محاولة") -> RED
+                else -> NAVY
+            })
+        }
 
         Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("رجوع لمسح التذاكر") }
