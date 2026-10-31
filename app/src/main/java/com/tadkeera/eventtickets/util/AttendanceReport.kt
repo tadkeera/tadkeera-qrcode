@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
@@ -41,6 +42,8 @@ object AttendanceReport {
     private val cellPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = 10f; color = Color.rgb(38, 50, 56)
     }
+    private val rightTitlePaint = Paint(titlePaint).apply { textAlign = Paint.Align.RIGHT }
+    private val rightCellPaint = Paint(cellPaint).apply { textAlign = Paint.Align.RIGHT }
     private val fillPaint = Paint().apply { color = Color.rgb(241, 243, 245) }
     private val linePaint = Paint().apply { color = Color.rgb(176, 190, 197); strokeWidth = 0.7f }
 
@@ -86,16 +89,18 @@ object AttendanceReport {
         pager.newPage()
         val c = pager.canvas!!
 
-        // ---- Header with logo
+        // ---- Header: logo on the LEFT, event details on the RIGHT (same line)
+        val rightX = PAGE_W - MARGIN
         ContextCompat.getDrawable(context, R.drawable.ic_tadkeera_logo)?.let { drawable ->
-            val logo = drawable.toBitmap(72, 72)
-            c.drawBitmap(logo, MARGIN, pager.y, null)
+            val logo = drawable.toBitmap(96, 96)
+            c.drawBitmap(logo, null, RectF(MARGIN, pager.y, MARGIN + 96f, pager.y + 96f), null)
         }
-        c.drawText("تقرير حضور المناسبة", MARGIN + 86f, pager.y + 26f, titlePaint)
-        c.drawText("Event: $eventName", MARGIN + 86f, pager.y + 48f, cellPaint)
-        c.drawText("Event code: ${eventCode.ifEmpty { "-" }}", MARGIN + 86f, pager.y + 62f, cellPaint)
-        c.drawText("Generated: ${dateFmt.format(System.currentTimeMillis())}", MARGIN + 86f, pager.y + 76f, cellPaint)
-        pager.y += 92f
+        c.drawText("تقرير حضور المناسبة", rightX, pager.y + 22f, rightTitlePaint)
+        c.drawText("Event: $eventName", rightX, pager.y + 44f, rightCellPaint)
+        c.drawText("Event code: ${eventCode.ifEmpty { "-" }}", rightX, pager.y + 60f, rightCellPaint)
+        c.drawText("Generated: ${dateFmt.format(System.currentTimeMillis())}", rightX, pager.y + 76f, rightCellPaint)
+        c.drawLine(MARGIN, pager.y + 106f, PAGE_W - MARGIN, pager.y + 106f, linePaint)
+        pager.y += 120f
 
         // ---- Derived data
         val inScans = scans.filter { it.type == "IN" }

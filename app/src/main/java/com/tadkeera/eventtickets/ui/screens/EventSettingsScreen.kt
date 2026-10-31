@@ -82,10 +82,18 @@ fun EventSettingsScreen(
                     "التاريخ الحالي: " + if (hasEnd) dateFormat.format(Date(event!!.endDate)) else "غير محدد",
                     fontWeight = FontWeight.Bold, color = NAVY
                 )
-                Text(
-                    "كود التفعيل: " + (event?.activationCode?.takeIf { it.isNotEmpty() } ?: "—"),
-                    fontWeight = FontWeight.Bold, color = NAVY
-                )
+                    val activation = event?.activationCode?.takeIf { it.isNotEmpty() } ?: ""
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "كود التفعيل: " + activation.ifEmpty { "—" },
+                        fontWeight = FontWeight.Bold, color = NAVY, modifier = Modifier.weight(1f)
+                    )
+                    if (activation.isNotEmpty()) {
+                        IconButton(onClick = { copyCode(context, "كود التفعيل", activation) }) {
+                            Icon(androidx.compose.material.icons.Icons.Default.ContentCopy, contentDescription = "نسخ", tint = ORANGE)
+                        }
+                    }
+                }
 
                 if (!isEditingDate) {
                     Button(
@@ -208,6 +216,7 @@ private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> U
 
 @Composable
 private fun UserRow(user: ScannerUser, onCreateCode: () -> Unit) {
+    val ctxForCopy = androidx.compose.ui.platform.LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -218,13 +227,26 @@ private fun UserRow(user: ScannerUser, onCreateCode: () -> Unit) {
             if (user.accessCode.isEmpty()) {
                 Text("لم يتم إنشاء كود لهذا المستخدم", color = Color(0xFF546E7A), fontSize = 13.sp)
             } else {
-                Text("كود المستخدم: ${user.accessCode}", fontWeight = FontWeight.Bold, color = NAVY)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("كود المستخدم: ${user.accessCode}", fontWeight = FontWeight.Bold, color = NAVY, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { copyCode(ctxForCopy, "كود المستخدم", user.accessCode) }) {
+                        Icon(androidx.compose.material.icons.Icons.Default.ContentCopy, contentDescription = "نسخ", tint = ORANGE)
+                    }
+                }
             }
             OutlinedButton(onClick = onCreateCode, modifier = Modifier.fillMaxWidth()) {
                 Text(if (user.accessCode.isEmpty()) "إنشاء كود المستخدم" else "إعادة إنشاء الكود")
             }
         }
     }
+}
+
+
+/** Copies a code to the clipboard and tells the user. */
+private fun copyCode(context: android.content.Context, label: String, text: String) {
+    val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    cm.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+    android.widget.Toast.makeText(context, "تم نسخ $label", android.widget.Toast.LENGTH_SHORT).show()
 }
 
 /** Midnight (local) of today, in millis. */

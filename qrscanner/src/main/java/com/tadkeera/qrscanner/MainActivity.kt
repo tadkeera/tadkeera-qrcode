@@ -1,7 +1,6 @@
 package com.tadkeera.qrscanner
 
 import android.Manifest
-import android.app.Application
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -15,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -22,6 +22,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,6 +45,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -59,6 +62,7 @@ private val ORANGE = Color(0xFFFF6D00)
 private val GREEN = Color(0xFF2E7D32)
 private val RED = Color(0xFFC62828)
 private val BLACK = Color(0xFF000000)
+private val PANEL = Color(0xFF0B0F1A)
 
 /** Dates are always shown with English digits, e.g. 2026/10/31 20:15:03. */
 private fun fmtTime(ts: Long): String =
@@ -89,10 +93,14 @@ private fun ScannerRoot() {
             vm = vm,
             onQuery = { screen = Screen.QUERY },
             onSettings = { screen = Screen.SETTINGS },
-            onLogout = { screen = Screen.LOGIN }
+            onLogout = { vm.logout(); screen = Screen.LOGIN }
         )
         Screen.QUERY -> QueryScreen(vm) { screen = Screen.SCANNER }
-        Screen.SETTINGS -> SettingsScreen(vm, onBack = { screen = Screen.SCANNER }, onLogout = { screen = Screen.LOGIN })
+        Screen.SETTINGS -> SettingsScreen(
+            vm,
+            onBack = { screen = Screen.SCANNER },
+            onLogout = { vm.logout(); screen = Screen.LOGIN }
+        )
     }
 }
 
@@ -122,10 +130,7 @@ private fun LoginScreen(vm: ScannerViewModel, onLoggedIn: () -> Unit) {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -154,11 +159,9 @@ private fun LoginScreen(vm: ScannerViewModel, onLoggedIn: () -> Unit) {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Button(
-                    onClick = { importLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("استيراد بيانات المناسبة") }
-
+                Button(onClick = { importLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("استيراد بيانات المناسبة")
+                }
                 Button(
                     enabled = !busy && vm.bundle != null && userCode.isNotBlank() && activationCode.isNotBlank(),
                     onClick = {
@@ -177,10 +180,11 @@ private fun LoginScreen(vm: ScannerViewModel, onLoggedIn: () -> Unit) {
     }
 
     message?.let { text ->
+        val ok = text.startsWith("تم استيراد")
         InfoDialog(
-            title = if (text.startsWith("تم استيراد")) "تم الاستيراد" else "تنبيه",
+            title = if (ok) "تم الاستيراد" else "تنبيه",
             text = text,
-            color = if (text.startsWith("تم استيراد")) GREEN else RED,
+            color = if (ok) GREEN else RED,
             onDismiss = { message = null }
         )
     }
@@ -206,72 +210,112 @@ private fun ScannerScreen(
         if (!hasCamera) cameraPermission.launch(Manifest.permission.CAMERA)
     }
     var modeMenu by remember { mutableStateOf(false) }
-    val s = vm.stats
+    var code by rememberSaveable { mutableStateOf("") }
+    var number by rememberSaveable { mutableStateOf("") }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // Top bar: user name, then query / export / mode / settings
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+    Column(modifier = Modifier.fillMaxSize().background(BLACK)) {
+        // ---- Top bar (outside the camera area)
+        Column(
+            modifier = Modifier.fillMaxWidth().background(NAVY).statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
-            Text("المستخدم: ${vm.operatorName}", fontWeight = FontWeight.Bold, color = NAVY, fontSize = 16.sp)
-            IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, contentDescription = "الإعدادات", tint = NAVY) }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedButton(onClick = onQuery, modifier = Modifier.weight(1f)) { Text("استعلام", fontSize = 13.sp) }
-            OutlinedButton(
-                onClick = { exportReport(context, vm) },
-                modifier = Modifier.weight(1f)
-            ) { Text("تصدير", fontSize = 13.sp) }
-            Box(modifier = Modifier.weight(1f)) {
-                Button(onClick = { modeMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (vm.scanMode == Mode.ENTRY) "وضع: دخول" else "وضع: خروج", fontSize = 13.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("المستخدم: ${vm.operatorName}", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, contentDescription = "الإعدادات", tint = Color.White) }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(onClick = onQuery, modifier = Modifier.weight(1f)) {
+                    Text("استعلام", fontSize = 12.sp, color = Color.White)
                 }
-                DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }) {
-                    DropdownMenuItem(text = { Text("دخول") }, onClick = { vm.setMode(Mode.ENTRY); modeMenu = false })
-                    DropdownMenuItem(text = { Text("خروج") }, onClick = { vm.setMode(Mode.EXIT); modeMenu = false })
+                OutlinedButton(onClick = { exportReport(context, vm) }, modifier = Modifier.weight(1f)) {
+                    Text("تصدير", fontSize = 12.sp, color = Color.White)
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    Button(onClick = { modeMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (vm.scanMode == Mode.ENTRY) "وضع: دخول" else "وضع: خروج", fontSize = 12.sp)
+                    }
+                    DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }) {
+                        DropdownMenuItem(text = { Text("دخول") }, onClick = { vm.setMode(Mode.ENTRY); modeMenu = false })
+                        DropdownMenuItem(text = { Text("خروج") }, onClick = { vm.setMode(Mode.EXIT); modeMenu = false })
+                    }
                 }
             }
         }
 
-        // Camera
-        Card(
-            modifier = Modifier.fillMaxWidth().height(260.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
+        // ---- Camera: fills the rest of the screen
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (hasCamera && vm.lockMessage == null) {
-                CameraPreview(onCode = { vm.onScanned(it) })
+                CameraPreview(vm)
             } else {
                 Box(Modifier.fillMaxSize().background(Color(0xFF263238)), contentAlignment = Alignment.Center) {
                     Text("الكاميرا غير متاحة", color = Color.White)
                 }
             }
+
+            // Connection status chip
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(10.dp)
+                    .background(Color(0xCC000000), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ConnectionChip(vm)
+            }
+
+            vm.notice?.let { text ->
+                Text(
+                    text,
+                    modifier = Modifier.align(Alignment.Center).background(Color(0xDD000000), RoundedCornerShape(10.dp)).padding(12.dp),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
-        // Statistics: the scanned count is black, as requested
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.5.dp, ORANGE)
+        // ---- Controls panel
+        Column(
+            modifier = Modifier.fillMaxWidth().background(PANEL).navigationBarsPadding().padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("إحصائيات المناسبة", fontWeight = FontWeight.Bold, color = ORANGE)
-                Text("عدد التذاكر الممسوحة: ${s?.everEntered ?: 0} من ${s?.total ?: 0}",
-                    fontWeight = FontWeight.Bold, color = BLACK, fontSize = 18.sp)
-                Text("داخل المناسبة الآن: ${s?.inside ?: 0}", color = NAVY)
-                Text("المتبقي: ${s?.remaining ?: 0}", color = NAVY)
-                Text("محاولات التزوير: ${s?.forgeries ?: 0}", color = NAVY)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { vm.focusCenter() }, modifier = Modifier.weight(1f)) {
+                    Text("🔍 تركيز تلقائي", fontSize = 13.sp)
+                }
+                Button(
+                    onClick = { vm.toggleFlash() },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = if (vm.flashOn) ORANGE else Color(0xFF616161))
+                ) {
+                    Text(if (vm.flashOn) "💡 إيقاف الفلاش" else "💡 تشغيل الفلاش", fontSize = 13.sp)
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.uppercase().take(5) },
+                    label = { Text("كود المناسبة (5 أحرف)", fontSize = 11.sp) },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = number,
+                    onValueChange = { number = it.filter(Char::isDigit) },
+                    label = { Text("رقم التذكرة", fontSize = 11.sp) },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White),
+                    modifier = Modifier.weight(1f)
+                )
+                Button(
+                    onClick = { vm.verifyManual(code, number) },
+                    colors = ButtonDefaults.buttonColors(containerColor = ORANGE)
+                ) { Text("تحقق", fontWeight = FontWeight.Bold) }
             }
         }
     }
@@ -285,11 +329,79 @@ private fun ScannerScreen(
             onDismissRequest = {},
             title = { Text("تنبيه أمني", fontWeight = FontWeight.Bold, color = RED) },
             text = { Text(text) },
-            confirmButton = {
-                Button(onClick = { vm.dismissLock(); onLogout() }) { Text("حسناً") }
-            }
+            confirmButton = { Button(onClick = { vm.dismissLock(); onLogout() }) { Text("حسناً") } }
         )
     }
+}
+
+/** Standalone / organizer (green = connected, red = not) / host (list of connected devices). */
+@Composable
+private fun ConnectionChip(vm: ScannerViewModel) {
+    when (vm.p2pMode) {
+        ScannerViewModel.ROLE_ORGANIZER -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Dot(if (vm.linkConnected) GREEN else RED)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "الوضع المنظم | " + if (vm.linkConnected) "متصل بالمستضيف" else "غير متصل",
+                color = Color.White, fontSize = 13.sp
+            )
+        }
+        ScannerViewModel.ROLE_HOST -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val connected = vm.devices.count { it.connected }
+            Text("الوضع المستضيف | الأجهزة المتصلة: $connected", color = Color.White, fontSize = 13.sp)
+            vm.devices.forEach { d ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Dot(if (d.connected) GREEN else RED)
+                    Spacer(Modifier.width(6.dp))
+                    Text("${d.name} — " + if (d.connected) "متصل" else "غير متصل", color = Color.White, fontSize = 12.sp)
+                }
+            }
+        }
+        else -> Text("الوضع المستقل | العمل الفردي", color = Color.White, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun Dot(color: Color) {
+    Box(Modifier.size(10.dp).background(color, CircleShape))
+}
+
+@Composable
+private fun CameraPreview(vm: ScannerViewModel) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { ctx ->
+            val previewView = PreviewView(ctx)
+            val future = ProcessCameraProvider.getInstance(ctx)
+            future.addListener({
+                val provider = future.get()
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+                val analysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                val scanner = BarcodeScanning.getClient(
+                    BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+                )
+                val executor = Executors.newSingleThreadExecutor()
+                analysis.setAnalyzer(executor) { proxy ->
+                    scanFrame(proxy, scanner) { code -> vm.onScanned(code) }
+                }
+                try {
+                    provider.unbindAll()
+                    val camera = provider.bindToLifecycle(
+                        lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis
+                    )
+                    vm.attachCamera(camera.cameraControl, previewView.meteringPointFactory)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(ctx))
+            previewView
+        }
+    )
 }
 
 @Composable
@@ -317,9 +429,7 @@ private fun VerdictDialog(verdict: Verdict, onNext: () -> Unit) {
                 Text(details, textAlign = TextAlign.Center, color = NAVY)
             }
         },
-        confirmButton = {
-            Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { Text("مسح التذكرة التالية") }
-        }
+        confirmButton = { Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { Text("مسح التذكرة التالية") } }
     )
 }
 
@@ -348,7 +458,7 @@ private fun QueryScreen(vm: ScannerViewModel, onBack: () -> Unit) {
         )
         OutlinedTextField(
             value = ticketNo, onValueChange = { ticketNo = it.filter(Char::isDigit) },
-            label = { Text("رقم المناسبة (رقم التذكرة)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+            label = { Text("رقم التذكرة") }, singleLine = true, modifier = Modifier.fillMaxWidth()
         )
         Button(
             onClick = {
@@ -399,14 +509,18 @@ private fun SettingsScreen(vm: ScannerViewModel, onBack: () -> Unit, onLogout: (
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("الربط والشبكات المحلية المتعددة (P2P) أوفلاين", fontWeight = FontWeight.Bold, color = ORANGE)
-                listOf("STANDALONE" to "مستقل", "ORGANIZER" to "منظم", "HOST" to "مستضيف").forEach { (key, label) ->
+                listOf(
+                    ScannerViewModel.ROLE_STANDALONE to "مستقل",
+                    ScannerViewModel.ROLE_ORGANIZER to "منظم",
+                    ScannerViewModel.ROLE_HOST to "مستضيف"
+                ).forEach { (key, label) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = vm.p2pMode == key, onClick = { vm.setP2P(key) })
                         Text(label, color = NAVY)
                     }
                 }
                 Text(
-                    "اختيار الوضع يُحفظ على الجهاز. المزامنة بين عدة أجهزة ستُفعَّل في تحديث لاحق.",
+                    "المنظم والمستضيف يحتاجان نفس الشبكة المحلية (Wi-Fi أو نقطة اتصال). التذاكر تُتحقق لدى المستضيف لمنع التكرار بين الأجهزة.",
                     fontSize = 12.sp, color = Color(0xFF546E7A)
                 )
             }
@@ -429,11 +543,9 @@ private fun SettingsScreen(vm: ScannerViewModel, onBack: () -> Unit, onLogout: (
         }
 
         Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = RED)
-        ) { Text("تسجيل الخروج", fontWeight = FontWeight.Bold) }
+        Button(onClick = onLogout, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = RED)) {
+            Text("تسجيل الخروج", fontWeight = FontWeight.Bold)
+        }
     }
 }
 
@@ -449,50 +561,8 @@ private fun InfoDialog(title: String, text: String, color: Color, onDismiss: () 
     )
 }
 
-@Composable
-private fun CameraPreview(onCode: (String) -> Unit) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val currentOnCode by rememberUpdatedState(onCode)
-
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { ctx ->
-            val previewView = PreviewView(ctx)
-            val future = ProcessCameraProvider.getInstance(ctx)
-            future.addListener({
-                val provider = future.get()
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
-                val analysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                val scanner = BarcodeScanning.getClient(
-                    BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-                )
-                val executor = Executors.newSingleThreadExecutor()
-                analysis.setAnalyzer(executor) { proxy ->
-                    scanFrame(proxy, scanner) { code -> currentOnCode(code) }
-                }
-                try {
-                    provider.unbindAll()
-                    provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }, ContextCompat.getMainExecutor(ctx))
-            previewView
-        }
-    )
-}
-
 @OptIn(ExperimentalGetImage::class)
-private fun scanFrame(
-    proxy: androidx.camera.core.ImageProxy,
-    scanner: com.google.mlkit.vision.barcode.BarcodeScanner,
-    onCode: (String) -> Unit
-) {
+private fun scanFrame(proxy: ImageProxy, scanner: BarcodeScanner, onCode: (String) -> Unit) {
     val media = proxy.image
     if (media == null) {
         proxy.close()
