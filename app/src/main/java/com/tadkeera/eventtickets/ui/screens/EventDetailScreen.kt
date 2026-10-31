@@ -41,6 +41,19 @@ fun EventDetailScreen(
     val event = eventState.value
     val scrollState = rememberScrollState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    var importMessage by remember { mutableStateOf<String?>(null) }
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            if (bytes == null) {
+                importMessage = "تعذر قراءة الملف."
+            } else {
+                viewModel.importScannerReport(eventId, bytes) { message -> importMessage = message }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -60,17 +73,29 @@ fun EventDetailScreen(
                     }
                 },
                 actions = {
+                    TextButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
+                        Text("استيراد", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
                     TextButton(onClick = {
-                        viewModel.uploadBackupToTelegram()
-                        Toast.makeText(context, "تم إرسال نسخة البيانات إلى تليجرام", Toast.LENGTH_SHORT).show()
+                        viewModel.sendAttendanceReportToTelegram(eventId) { message ->
+                            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                        }
                     }) {
-                        Text("مزامنة مع تليجرام", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("مزامنة مع تليجرام", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF111E38)) // Deep navy top bar!
             )
         }
     ) { padding ->
+        importMessage?.let { text ->
+            AlertDialog(
+                onDismissRequest = { importMessage = null },
+                title = { Text("استيراد تقرير الماسح", fontWeight = FontWeight.Bold) },
+                text = { Text(text, textAlign = TextAlign.Center) },
+                confirmButton = { Button(onClick = { importMessage = null }) { Text("حسناً") } }
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()

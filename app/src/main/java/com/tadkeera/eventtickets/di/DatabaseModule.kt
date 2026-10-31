@@ -27,7 +27,8 @@ object DatabaseModule {
         .addMigrations(
             com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_4_5,
             com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_5_6,
-            com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_6_7
+            com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_6_7,
+            com.tadkeera.eventtickets.data.TadkeeraDatabase.MIGRATION_7_8
         )
         .fallbackToDestructiveMigration()
         .build()
@@ -50,4 +51,7 @@ object DatabaseModule {
 
     @Provides
     fun provideScannerUserDao(db: TadkeeraDatabase): ScannerUserDao = db.scannerUserDao()
+
+    @Provides
+    fun provideReportDao(db: TadkeeraDatabase): ReportDao = db.reportDao()
 }

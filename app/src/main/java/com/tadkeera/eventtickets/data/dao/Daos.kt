@@ -7,6 +7,8 @@ import com.tadkeera.eventtickets.data.entities.Ticket
 import com.tadkeera.eventtickets.data.entities.TicketDesign
 import com.tadkeera.eventtickets.data.entities.SyncQueueItem
 import com.tadkeera.eventtickets.data.entities.ScannerUser
+import com.tadkeera.eventtickets.data.entities.ScanLog
+import com.tadkeera.eventtickets.data.entities.ForgeryLog
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -85,6 +87,27 @@ interface GuestNameDao {
 
     @Query("DELETE FROM guest_names WHERE eventId = :eventId")
     suspend fun deleteGuestNamesByEventId(eventId: String)
+}
+
+@Dao
+interface ReportDao {
+    @Query("SELECT * FROM scan_logs WHERE eventId = :eventId ORDER BY timestamp ASC")
+    suspend fun getScanLogs(eventId: String): List<ScanLog>
+
+    @Insert
+    suspend fun insertScanLogs(logs: List<ScanLog>)
+
+    @Query("DELETE FROM scan_logs WHERE eventId = :eventId")
+    suspend fun deleteScanLogs(eventId: String)
+
+    @Query("SELECT * FROM forgery_logs WHERE eventId = :eventId ORDER BY timestamp ASC")
+    suspend fun getForgeryLogs(eventId: String): List<ForgeryLog>
+
+    @Insert
+    suspend fun insertForgeryLogs(logs: List<ForgeryLog>)
+
+    @Query("DELETE FROM forgery_logs WHERE eventId = :eventId")
+    suspend fun deleteForgeryLogs(eventId: String)
 }
 
 @Dao

@@ -13,7 +13,8 @@ class TicketRepository @Inject constructor(
     private val designDao: TicketDesignDao,
     private val guestDao: GuestNameDao,
     private val syncQueueDao: SyncQueueDao,
-    private val scannerUserDao: ScannerUserDao
+    private val scannerUserDao: ScannerUserDao,
+    private val reportDao: ReportDao
 ) {
     val allEvents: Flow<List<Event>> = eventDao.getAllEvents()
 
@@ -42,6 +43,17 @@ class TicketRepository @Inject constructor(
     suspend fun getGuestNamesList(eventId: String) = guestDao.getGuestNamesList(eventId)
     suspend fun addGuestNames(names: List<GuestName>) = guestDao.insertGuestNames(names)
     
+    suspend fun getScanLogs(eventId: String) = reportDao.getScanLogs(eventId)
+    suspend fun getForgeryLogs(eventId: String) = reportDao.getForgeryLogs(eventId)
+
+    /** Replaces the imported history of the event (the scanner report is cumulative). */
+    suspend fun replaceReport(eventId: String, scans: List<ScanLog>, forgeries: List<ForgeryLog>) {
+        reportDao.deleteScanLogs(eventId)
+        reportDao.deleteForgeryLogs(eventId)
+        if (scans.isNotEmpty()) reportDao.insertScanLogs(scans)
+        if (forgeries.isNotEmpty()) reportDao.insertForgeryLogs(forgeries)
+    }
+
     fun getScannerUsers(eventId: String) = scannerUserDao.getUsersForEvent(eventId)
     suspend fun getScannerUsersList(eventId: String) = scannerUserDao.getUsersListForEvent(eventId)
     suspend fun addScannerUser(user: ScannerUser) = scannerUserDao.insertUser(user)

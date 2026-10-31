@@ -33,6 +33,8 @@ jobs:
           gradle wrapper
         fi
         ./gradlew assembleDebug
+        # QR-SCANER is shipped as the obfuscated (R8) release build
+        ./gradlew :qrscanner:assembleRelease
 
     - name: Rename APKs for Release
       run: |
@@ -43,6 +45,8 @@ jobs:
         echo "Main=$APP_VER QRScan=$QR_VER"
         cp app/build/outputs/apk/debug/app-debug.apk "release-apks/tadkeera_app_v${APP_VER}.apk"
         cp qrscan/build/outputs/apk/debug/qrscan-debug.apk "release-apks/qrscan_v${QR_VER}_app.apk"
+        SCN_VER=$(grep -m1 'versionName' qrscanner/build.gradle | sed -E 's/.*"([^"]+)".*/\1/')
+        cp qrscanner/build/outputs/apk/release/qrscanner-release.apk "release-apks/qrscaner_v${SCN_VER}_app.apk"
         ls -la release-apks
 
     - name: Upload Artifacts

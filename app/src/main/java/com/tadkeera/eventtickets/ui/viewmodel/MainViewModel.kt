@@ -304,6 +304,85 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Imports a report (.tkrpt) produced by QR-SCANER. The report is cumulative, so the event's
+     * attendance is set exactly from it. Reports of other events are refused.
+     */
+    fun importScannerReport(eventId: String, bytes: ByteArray, onResult: (String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val message: String = try {
+                val plain = com.tadkeera.eventtickets.util.EventExportCrypto.decrypt(
+                    bytes, com.tadkeera.eventtickets.util.EventExportCrypto.MAGIC_REPORT
+                ) ?: throw IllegalArgumentException("الملف تالف أو ليس تقرير ماسح صادراً من تطبيق QR-SCANER.")
+                val json = JSONObject(String(plain, Charsets.UTF_8))
+                require(json.optString("format") == "tadkeera-report-v1") { "صيغة التقرير غير معروفة." }
+                require(json.getString("eventId") == eventId) { "هذا التقرير يخص مناسبة أخرى." }
+
+                val scansArr = json.getJSONArray("scans")
+                val scans = (0 until scansArr.length()).map {
+                    val o = scansArr.getJSONObject(it)
+                    com.tadkeera.eventtickets.data.entities.ScanLog(
+                        eventId = eventId,
+                        qrCodeData = o.getString("qr"),
+                        type = o.getString("type"),
+                        timestamp = o.getLong("ts"),
+                        operator = o.optString("operator", "")
+                    )
+                }
+                val forgArr = json.getJSONArray("forgeries")
+                val forgeries = (0 until forgArr.length()).map {
+                    val o = forgArr.getJSONObject(it)
+                    com.tadkeera.eventtickets.data.entities.ForgeryLog(
+                        eventId = eventId,
+                        preview = o.getString("preview"),
+                        reason = o.getString("reason"),
+                        timestamp = o.getLong("ts")
+                    )
+                }
+
+                // Attendance on tickets = exact result of the scanner history.
+                val entriesByQr = scans.filter { it.type == "IN" }.groupBy { it.qrCodeData }
+                val tickets = repository.getTicketsList(eventId)
+                tickets.forEach { t ->
+                    val entries = entriesByQr[t.qrCodeData].orEmpty()
+                    t.isScanned = entries.isNotEmpty()
+                    t.scannedAt = entries.minOfOrNull { it.timestamp }
+                    t.scanCount = entries.size
+                    repository.updateTicket(t)
+                }
+                repository.replaceReport(eventId, scans, forgeries)
+                backupDatabase()
+                "تم استيراد التقرير ✅\nالحاضرون: ${tickets.count { it.isScanned }}\nمحاولات التزوير: ${forgeries.size}"
+            } catch (e: Exception) {
+                e.printStackTrace()
+                "فشل الاستيراد: ${e.message ?: "خطأ غير معروف"}"
+            }
+            withContext(Dispatchers.Main) { onResult(message) }
+        }
+    }
+
+    /** Builds the attendance PDF (forgeries, attended, absent) and sends it to Telegram. */
+    fun sendAttendanceReportToTelegram(eventId: String, onResult: (String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val message: String = try {
+                val event = repository.getEvent(eventId) ?: throw IllegalStateException("المناسبة غير موجودة")
+                val tickets = repository.getTicketsList(eventId)
+                val scans = repository.getScanLogs(eventId)
+                val forgeries = repository.getForgeryLogs(eventId)
+                val file = File(context.cacheDir, "reports/Tadkeera_Attendance_${event.eventCode.ifEmpty { "event" }}.pdf")
+                com.tadkeera.eventtickets.util.AttendanceReport.build(
+                    context, event.eventName, event.eventCode, tickets, scans, forgeries, file
+                )
+                uploadPdfToTelegram(file, event.eventName)
+                "تم إرسال تقرير الحضور إلى تليجرام"
+            } catch (e: Exception) {
+                e.printStackTrace()
+                "فشل إنشاء التقرير: ${e.message ?: "خطأ غير معروف"}"
+            }
+            withContext(Dispatchers.Main) { onResult(message) }
+        }
+    }
+
     private fun copyTemplateToDesignStorage(sourcePath: String): String {
         val source = File(sourcePath)
         if (!source.exists()) return sourcePath

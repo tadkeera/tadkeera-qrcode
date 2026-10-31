@@ -92,3 +92,24 @@ data class SyncQueueItem(
     val qrCodeData: String = "",
     val timestamp: Long = System.currentTimeMillis()
 )
+
+// Entry/exit movement recorded by QR-SCANER and imported from its report
+@Entity(tableName = "scan_logs")
+data class ScanLog(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val eventId: String,
+    val qrCodeData: String,
+    val type: String, // "IN" or "OUT"
+    val timestamp: Long,
+    val operator: String = ""
+)
+
+// Scan that did not match any ticket of the event (possible forgery)
+@Entity(tableName = "forgery_logs")
+data class ForgeryLog(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val eventId: String,
+    val preview: String,
+    val reason: String,
+    val timestamp: Long
+)
