@@ -12,7 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import android.widget.Toast
 import com.tadkeera.eventtickets.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +40,7 @@ fun EventDetailScreen(
     val eventState = viewModel.getEventFlow(eventId).collectAsState(initial = null)
     val event = eventState.value
     val scrollState = rememberScrollState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Scaffold(
         topBar = {
@@ -55,6 +57,14 @@ fun EventDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "رجوع", tint = Color.White)
+                    }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        viewModel.uploadBackupToTelegram()
+                        Toast.makeText(context, "تم إرسال نسخة البيانات إلى تليجرام", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Text("مزامنة مع تليجرام", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF111E38)) // Deep navy top bar!
@@ -123,11 +133,11 @@ fun EventDetailScreen(
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         DashboardCard(
-                            title = "قارئ الباركود",
-                            subtitle = "امسح التذاكر للتحقق من الحضور عند البوابة.",
-                            icon = Icons.Default.QrCodeScanner,
+                            title = "إعدادات المناسبة",
+                            subtitle = "المستخدمون وأكواد الماسح وتاريخ انتهاء المناسبة.",
+                            icon = Icons.Default.Settings,
                             accentColor = Color(0xFF7B1FA2), // Purple
-                            onClick = { navController.navigate("barcode_scanner/$eventId") }
+                            onClick = { navController.navigate("event_settings/$eventId") }
                         )
                     }
 

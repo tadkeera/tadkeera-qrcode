@@ -6,6 +6,7 @@ import com.tadkeera.eventtickets.data.entities.GuestName
 import com.tadkeera.eventtickets.data.entities.Ticket
 import com.tadkeera.eventtickets.data.entities.TicketDesign
 import com.tadkeera.eventtickets.data.entities.SyncQueueItem
+import com.tadkeera.eventtickets.data.entities.ScannerUser
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -30,6 +31,9 @@ interface EventDao {
 interface TicketDao {
     @Query("SELECT * FROM tickets WHERE eventId = :eventId")
     fun getEventTickets(eventId: String): Flow<List<Ticket>>
+
+    @Query("SELECT * FROM tickets WHERE eventId = :eventId ORDER BY eventCode ASC, ticketNumber ASC")
+    suspend fun getEventTicketsList(eventId: String): List<Ticket>
     
     @Query("SELECT * FROM tickets WHERE qrCodeData = :qrCode LIMIT 1")
     suspend fun getTicketByQR(qrCode: String): Ticket?
@@ -81,6 +85,21 @@ interface GuestNameDao {
 
     @Query("DELETE FROM guest_names WHERE eventId = :eventId")
     suspend fun deleteGuestNamesByEventId(eventId: String)
+}
+
+@Dao
+interface ScannerUserDao {
+    @Query("SELECT * FROM scanner_users WHERE eventId = :eventId ORDER BY id ASC")
+    fun getUsersForEvent(eventId: String): Flow<List<ScannerUser>>
+
+    @Query("SELECT * FROM scanner_users WHERE eventId = :eventId ORDER BY id ASC")
+    suspend fun getUsersListForEvent(eventId: String): List<ScannerUser>
+
+    @Insert
+    suspend fun insertUser(user: ScannerUser)
+
+    @Update
+    suspend fun updateUser(user: ScannerUser)
 }
 
 @Dao

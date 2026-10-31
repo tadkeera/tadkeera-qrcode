@@ -1,5 +1,6 @@
 package com.tadkeera.eventtickets.data.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -10,7 +11,19 @@ data class Event(
     val eventName: String,
     val eventDate: Long, // Timestamp
     val createdAt: Long = System.currentTimeMillis(),
-    val eventCode: String = "" // Generated during ticket issuance
+    val eventCode: String = "", // Generated during ticket issuance
+    // Event end date (epoch millis, 0 = not set) and the activation code issued with it
+    @ColumnInfo(defaultValue = "0") val endDate: Long = 0L,
+    @ColumnInfo(defaultValue = "''") val activationCode: String = ""
+)
+
+// A scanner operator (gate) of an event. Each one gets its own access code for the scanner app.
+@Entity(tableName = "scanner_users")
+data class ScannerUser(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val eventId: String,
+    val name: String,
+    @ColumnInfo(defaultValue = "''") val accessCode: String = ""
 )
 
 @Entity(tableName = "tickets")

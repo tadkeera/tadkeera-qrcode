@@ -136,11 +136,11 @@ fun TadkeeraApp(viewModel: MainViewModel) {
             )
         }
         composable(
-            route = "barcode_scanner/{eventId}",
+            route = "event_settings/{eventId}",
             arguments = listOf(navArgument("eventId") { type = NavType.StringType })
         ) { backStackEntry ->
             val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
-            BarcodeScannerScreen(
+            EventSettingsScreen(
                 eventId = eventId,
                 navController = navController,
                 viewModel = viewModel

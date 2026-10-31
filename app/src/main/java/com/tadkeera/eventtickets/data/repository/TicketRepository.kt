@@ -12,7 +12,8 @@ class TicketRepository @Inject constructor(
     private val ticketDao: TicketDao,
     private val designDao: TicketDesignDao,
     private val guestDao: GuestNameDao,
-    private val syncQueueDao: SyncQueueDao
+    private val syncQueueDao: SyncQueueDao,
+    private val scannerUserDao: ScannerUserDao
 ) {
     val allEvents: Flow<List<Event>> = eventDao.getAllEvents()
 
@@ -41,6 +42,12 @@ class TicketRepository @Inject constructor(
     suspend fun getGuestNamesList(eventId: String) = guestDao.getGuestNamesList(eventId)
     suspend fun addGuestNames(names: List<GuestName>) = guestDao.insertGuestNames(names)
     
+    fun getScannerUsers(eventId: String) = scannerUserDao.getUsersForEvent(eventId)
+    suspend fun getScannerUsersList(eventId: String) = scannerUserDao.getUsersListForEvent(eventId)
+    suspend fun addScannerUser(user: ScannerUser) = scannerUserDao.insertUser(user)
+    suspend fun updateScannerUser(user: ScannerUser) = scannerUserDao.updateUser(user)
+    suspend fun getTicketsList(eventId: String) = ticketDao.getEventTicketsList(eventId)
+
     suspend fun getStats(eventId: String): Pair<Int, Int> {
         val total = ticketDao.getTotalTickets(eventId)
         val scanned = ticketDao.getScannedTickets(eventId)

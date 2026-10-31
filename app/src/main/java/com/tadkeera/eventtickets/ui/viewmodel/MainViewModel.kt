@@ -39,6 +39,10 @@ import java.net.URL
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
+import org.json.JSONArray
+import org.json.JSONObject
+import com.tadkeera.eventtickets.util.AccessCodes
+import com.tadkeera.eventtickets.util.EventExportCrypto
 import javax.inject.Inject
 import javax.crypto.KeyGenerator
 import javax.crypto.Mac
@@ -213,6 +217,90 @@ class MainViewModel @Inject constructor(
             repository.addDesign(design)
             backupDatabase()
             uploadBackupToTelegram()
+        }
+    }
+
+    // ===== Event settings: scanner users, access codes, end date, encrypted export =====
+
+    fun getScannerUsersFlow(eventId: String): Flow<List<com.tadkeera.eventtickets.data.entities.ScannerUser>> =
+        repository.getScannerUsers(eventId)
+
+    fun addScannerUser(eventId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val count = repository.getScannerUsersList(eventId).size
+            repository.addScannerUser(
+                com.tadkeera.eventtickets.data.entities.ScannerUser(eventId = eventId, name = "مستخدم ${count + 1}")
+            )
+            backupDatabase()
+        }
+    }
+
+    fun createScannerUserCode(user: com.tadkeera.eventtickets.data.entities.ScannerUser) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val taken = repository.getScannerUsersList(user.eventId).map { it.accessCode }.toSet()
+            var code: String
+            do {
+                code = AccessCodes.newUserCode()
+            } while (code in taken)
+            repository.updateScannerUser(user.copy(accessCode = code))
+            backupDatabase()
+        }
+    }
+
+    /** Sets the end date and issues a NEW activation code (used when the event is postponed). */
+    fun updateEventEndDate(eventId: String, endDate: Long, onDone: () -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val event = repository.getEvent(eventId) ?: return@launch
+            repository.updateEvent(event.copy(endDate = endDate, activationCode = AccessCodes.newActivationCode()))
+            backupDatabase()
+            withContext(Dispatchers.Main) { onDone() }
+        }
+    }
+
+    /** Writes the encrypted event bundle (event, scanner users and codes, tickets) to cache and returns it. */
+    fun exportEventBundle(eventId: String, onResult: (File?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val file: File? = try {
+                val event = repository.getEvent(eventId) ?: throw IllegalStateException("event not found")
+                val users = repository.getScannerUsersList(eventId)
+                val tickets = repository.getTicketsList(eventId)
+
+                val eventJson = JSONObject()
+                    .put("eventId", event.eventId)
+                    .put("eventName", event.eventName)
+                    .put("eventCode", event.eventCode)
+                    .put("eventDate", event.eventDate)
+                    .put("endDate", event.endDate)
+                    .put("activationCode", event.activationCode)
+                val usersJson = JSONArray()
+                users.forEach { usersJson.put(JSONObject().put("name", it.name).put("accessCode", it.accessCode)) }
+                val ticketsJson = JSONArray()
+                tickets.forEach {
+                    ticketsJson.put(
+                        JSONObject()
+                            .put("ticketNumber", it.ticketNumber)
+                            .put("eventCode", it.eventCode)
+                            .put("qrCodeData", it.qrCodeData)
+                            .put("guestName", it.guestName)
+                    )
+                }
+                val payload = JSONObject()
+                    .put("format", "tadkeera-event-v1")
+                    .put("exportedAt", System.currentTimeMillis())
+                    .put("event", eventJson)
+                    .put("users", usersJson)
+                    .put("tickets", ticketsJson)
+
+                val dir = File(context.cacheDir, "exports").apply { if (!exists()) mkdirs() }
+                val safeName = event.eventName.replace(Regex("[^\\p{L}\\p{N}_-]+"), "_").take(40).ifEmpty { "event" }
+                val out = File(dir, "Tadkeera_${safeName}.tkevt")
+                out.writeBytes(EventExportCrypto.encrypt(payload.toString().toByteArray(Charsets.UTF_8)))
+                out
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+            withContext(Dispatchers.Main) { onResult(file) }
         }
     }
 

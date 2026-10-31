@@ -13,9 +13,10 @@ import com.tadkeera.eventtickets.data.entities.*
         TicketDesign::class,
         Ticket::class,
         GuestName::class,
-        SyncQueueItem::class
+        SyncQueueItem::class,
+        ScannerUser::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class TadkeeraDatabase : RoomDatabase() {
@@ -24,6 +25,7 @@ abstract class TadkeeraDatabase : RoomDatabase() {
     abstract fun ticketDao(): TicketDao
     abstract fun guestNameDao(): GuestNameDao
     abstract fun syncQueueDao(): SyncQueueDao
+    abstract fun scannerUserDao(): ScannerUserDao
 
     companion object {
         // Manual, elegant Migration from 4 to 5!
@@ -44,6 +46,21 @@ abstract class TadkeeraDatabase : RoomDatabase() {
 
         // Adds the per-design toggle for the QR micro-text security frame.
         // Existing designs keep their data and default to enabled (1).
+        // Event end date + activation code, and scanner users per event.
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `endDate` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `activationCode` TEXT NOT NULL DEFAULT ''")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `scanner_users` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`eventId` TEXT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`accessCode` TEXT NOT NULL DEFAULT '')"
+                )
+            }
+        }
+
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
